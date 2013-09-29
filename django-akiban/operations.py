@@ -139,3 +139,10 @@ class DatabaseOperations(BaseDatabaseOperations):
 
     def max_name_length(self):
     	return 128
+
+    def lookup_cast(self, lookup_type):
+        lookup = '%s'
+        # Transform field like term is. Needs to match operations dict in base.py/DatabaseWrapper.
+        if lookup_type in ('iexact', 'icontains', 'istartswith', 'iendswith'):
+            lookup = 'UPPER(%s)' % lookup
+        return lookup

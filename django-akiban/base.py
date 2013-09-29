@@ -93,7 +93,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'exact': '= %s',
         'iexact': '= UPPER(%s)',
         'contains': 'LIKE %s',
-        'icontains': 'ILIKE %s',
+        'icontains': 'LIKE UPPER(%s)',
         'regex': '~ %s',        # TODO Reject?
         'iregex': '~* %s',      # TODO Reject?
         'gt': '> %s',
@@ -102,8 +102,8 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'lte': '<= %s',
         'startswith': 'LIKE %s',
         'endswith': 'LIKE %s',
-        'istartswith': 'ILIKE %s',
-        'iendswith': 'ILIKE %s',
+        'istartswith': 'LIKE UPPER(%s)',
+        'iendswith': 'LIKE UPPER(%s)',
     }
 
     def __init__(self, *args, **kwargs):
