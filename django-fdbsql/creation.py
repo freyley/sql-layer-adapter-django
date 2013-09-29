@@ -35,7 +35,7 @@ class DatabaseCreation(BaseDatabaseCreation):
         return ' '.join(suffix)
     
     def sql_for_inline_foreign_key_references(self, field, known_models, style):
-        "All inline references are pending under Akiban"
+        "All inline references are pending under FoundationDB SQL"
         return [], True
 
     def sql_for_pending_references(self, model, style, pending_references):

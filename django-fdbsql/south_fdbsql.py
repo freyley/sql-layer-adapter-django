@@ -7,10 +7,10 @@ from south.db import generic
 
 class DatabaseOperations(generic.DatabaseOperations):
     """
-    Akiban implementation of database operations.
+    FoundationDB SQL Layer implementation of database operations.
     """
 
-    backend_name = "akiban"
+    backend_name = "fdbsql"
     allows_combined_alters  = False
     supports_foreign_keys   = False
     has_check_constraints   = False

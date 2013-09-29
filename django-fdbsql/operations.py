@@ -11,7 +11,7 @@ class DatabaseOperations(BaseDatabaseOperations):
         self.connection = connection
 
     def date_extract_sql(self, lookup_type, field_name):
-        # Akiban has YEAR, MONTH and DAY extraction functions
+        # FoundationDB has YEAR, MONTH and DAY extraction functions
         known_funcs = ['year', 'month', 'day']
         if lookup_type not in known_funcs:
             raise "Unknown lookup_type: %s" % (lookup_type,)

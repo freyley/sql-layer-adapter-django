@@ -1,5 +1,5 @@
 """
-Akiban database backend for Django.
+FoundationDB SQL Layer database backend for Django.
 
 Requires psycopg 2: http://initd.org/projects/psycopg2
 """
@@ -9,10 +9,10 @@ import sys
 from django.db import utils
 from django.db.backends import *
 from django.db.backends.signals import connection_created
-from django.db.backends.akiban.operations import DatabaseOperations as PostgresqlDatabaseOperations
-from django.db.backends.akiban.client import DatabaseClient
-from django.db.backends.akiban.creation import DatabaseCreation
-from django.db.backends.akiban.introspection import DatabaseIntrospection
+from django.db.backends.fdbsql.operations import DatabaseOperations as PostgresqlDatabaseOperations
+from django.db.backends.fdbsql.client import DatabaseClient
+from django.db.backends.fdbsql.creation import DatabaseCreation
+from django.db.backends.fdbsql.introspection import DatabaseIntrospection
 from django.utils.safestring import SafeUnicode, SafeString
 
 try:
@@ -88,7 +88,7 @@ class DatabaseOperations(PostgresqlDatabaseOperations):
         return "RETURNING %s", ()
 
 class DatabaseWrapper(BaseDatabaseWrapper):
-    vendor = 'akiban'
+    vendor = 'foundationdb'
     operators = {
         'exact': '= %s',
         'iexact': '= UPPER(%s)',
