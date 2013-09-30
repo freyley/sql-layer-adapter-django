@@ -14,11 +14,36 @@ and `South <http://south.aeracode.org>`_.
 Supported Django Versions
 -------------------------
 
+Django versions 1.3, 1.4 and 1.5 are known to work and have been tested with sample
+applications. However, this project is still in the alpha stages so there are most
+likely cases that haven't been covered. Do let us know (see *Contact* section below)
+if you run into any problems.
+
 
 Quick Start
 -----------
 
-Coming soon.
+1. Install the adapter::
+    
+    $ sudo pip install git+https://github.com/FoundationDB/sql-layer-adapter-django.git
+
+2. Edit ``settings.py`` or ``settings_local.py``::
+    
+    DATABASES = {
+        'default': {
+          'ENGINE': 'django_fdbsql',
+          'NAME': 'test_schema',
+          ## Defaults
+          #'HOST': 'localhost',
+          #'PORT': '15432',
+          #'USER': 'django_test',
+          #'PASSWORD': '',
+        }
+    }
+
+3. Sync your database::
+    
+    $ python manage.py syncdb
 
 
 Contributing
