@@ -124,21 +124,26 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             new_connection = True
             if settings_dict['NAME'] == '':
                 from django.core.exceptions import ImproperlyConfigured
-                raise ImproperlyConfigured("You need to specify NAME in your Django settings file.")
+                raise ImproperlyConfigured("You need to specify NAME (schema name) in your Django settings file.")
             conn_params = {
                 'database': settings_dict['NAME'],
             }
             conn_params.update(settings_dict['OPTIONS'])
             if 'autocommit' in conn_params:
                 del conn_params['autocommit']
-            if settings_dict['USER']:
-                conn_params['user'] = settings_dict['USER']
+            conn_params['user'] = settings_dict.get('USER')
+            conn_params['host'] = settings_dict.get('HOST')
+            conn_params['port'] = settings_dict.get('PORT')
+            # User doesn't matter by default but it cannot be blank
+            if not conn_params['user']:
+                conn_params['user'] = 'django_user'
+            if not conn_params['host']:
+                conn_params['host'] = 'localhost'
+            if not conn_params['port']:
+                conn_params['port'] = '15432'
+            print 'USING: ', conn_params
             if settings_dict['PASSWORD']:
                 conn_params['password'] = settings_dict['PASSWORD']
-            if settings_dict['HOST']:
-                conn_params['host'] = settings_dict['HOST']
-            if settings_dict['PORT']:
-                conn_params['port'] = settings_dict['PORT']
             self.connection = Database.connect(**conn_params)
             self.connection.set_client_encoding('UTF8')
             self.connection.autocommit = True
