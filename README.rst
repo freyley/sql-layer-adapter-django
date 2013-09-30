@@ -1,6 +1,6 @@
-#####################################
+*************************************
 FoundationDB SQL Layer Django Adapter
-#####################################
+*************************************
 
 The `FoundationDB SQL Layer <https://github.com/FoundationDB/sql-layer>`_ is a
 full SQL implementation built upon the `FoundationDB <https://foundationdb.com>`_'s
@@ -12,7 +12,7 @@ and `South <http://south.aeracode.org>`_.
 
 
 Supported Django Versions
--------------------------
+=========================
 
 Django versions 1.3, 1.4 and 1.5 are known to work and have been tested with sample
 applications. However, this project is still in the alpha stages so there are most
@@ -21,7 +21,7 @@ if you run into any problems.
 
 
 Quick Start
------------
+===========
 
 1. Install the adapter::
     
@@ -41,13 +41,19 @@ Quick Start
         }
     }
 
+3. If you're using South for migrations (optional), add this to your settings as well::
+    
+    SOUTH_DATABASE_ADAPTERS = {
+        'default': 'django_fdbsql.south_fdbsql'
+    }
+
 3. Sync your database::
     
     $ python manage.py syncdb
 
 
 Contributing
-------------
+============
 
 1. Fork
 2. Branch
@@ -56,7 +62,7 @@ Contributing
 
 
 Contact
--------
+=======
 
 * GitHub: http://github.com/FoundationDB/sql-layer-adapter-django
 * Community: http://community.foundationdb.com
@@ -64,7 +70,7 @@ Contact
 
 
 License
--------
+=======
 
 | The MIT License (MIT)
 | Copyright (c) 2013 FoundationDB, LLC
