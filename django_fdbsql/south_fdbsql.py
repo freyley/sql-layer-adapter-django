@@ -10,7 +10,7 @@ class DatabaseOperations(generic.DatabaseOperations):
     FoundationDB SQL Layer implementation of database operations.
     """
 
-    backend_name = "fdbsql"
+    backend_name = "django_fdbsql"
     allows_combined_alters  = False
     supports_foreign_keys   = False
     has_check_constraints   = False

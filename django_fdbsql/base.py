@@ -9,11 +9,12 @@ import sys
 from django.db import utils
 from django.db.backends import *
 from django.db.backends.signals import connection_created
-from django.db.backends.fdbsql.operations import DatabaseOperations as PostgresqlDatabaseOperations
-from django.db.backends.fdbsql.client import DatabaseClient
-from django.db.backends.fdbsql.creation import DatabaseCreation
-from django.db.backends.fdbsql.introspection import DatabaseIntrospection
 from django.utils.safestring import SafeUnicode, SafeString
+
+from operations import DatabaseOperations as PostgresqlDatabaseOperations
+from client import DatabaseClient
+from creation import DatabaseCreation
+from introspection import DatabaseIntrospection
 
 try:
     import psycopg2 as Database
