@@ -1,5 +1,6 @@
 import re
 
+from django import VERSION as djangoVersion
 from django.db.backends import BaseDatabaseOperations
 
 # This DatabaseOperations class lives in here instead of base.py because it's
@@ -7,8 +8,11 @@ from django.db.backends import BaseDatabaseOperations
 
 class DatabaseOperations(BaseDatabaseOperations):
     def __init__(self, connection):
-        super(DatabaseOperations, self).__init__()
-        self.connection = connection
+        if djangoVersion[0:2] >= (1,4):
+            super(DatabaseOperations, self).__init__(connection)
+        else:
+            super(DatabaseOperations, self).__init__()
+            self.connection = connection
 
     def date_extract_sql(self, lookup_type, field_name):
         # FoundationDB has YEAR, MONTH and DAY extraction functions
@@ -146,3 +150,9 @@ class DatabaseOperations(BaseDatabaseOperations):
         if lookup_type in ('iexact', 'icontains', 'istartswith', 'iendswith'):
             lookup = 'UPPER(%s)' % lookup
         return lookup
+
+    # Added in Django 1.4
+    def bulk_insert_sql(self, fields, num_values):
+        items_sql = "(%s)" % ", ".join(["%s"] * len(fields))
+        return "VALUES " + ", ".join([items_sql] * num_values)
+
