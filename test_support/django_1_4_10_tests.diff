@@ -1,0 +1,589 @@
+diff --git a/tests/modeltests/aggregation/tests.py b/tests/modeltests/aggregation/tests.py
+index a35dbb3..1077acf 100644
+--- a/tests/modeltests/aggregation/tests.py
++++ b/tests/modeltests/aggregation/tests.py
+@@ -5,10 +5,13 @@ from decimal import Decimal
+ 
+ from django.db.models import Avg, Sum, Count, Max, Min
+ from django.test import TestCase, Approximate
++from django.db import connection
++from django.utils.unittest import skipIf
+ 
+ from .models import Author, Publisher, Book, Store
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class BaseAggregateTestCase(TestCase):
+     fixtures = ["aggregation.json"]
+ 
+diff --git a/tests/modeltests/get_or_create/tests.py b/tests/modeltests/get_or_create/tests.py
+index f98f0e6..78ad5ae 100644
+--- a/tests/modeltests/get_or_create/tests.py
++++ b/tests/modeltests/get_or_create/tests.py
+@@ -4,12 +4,13 @@ from datetime import date
+ import traceback
+ 
+ from django.db import IntegrityError
+-from django.test import TestCase
++from django.test import TestCase, skipUnlessDBFeature
+ 
+ from .models import Person, ManualPrimaryKeyTest
+ 
+ 
+ class GetOrCreateTests(TestCase):
++    @skipUnlessDBFeature('uses_savepoints')
+     def test_get_or_create(self):
+         p = Person.objects.create(
+             first_name='John', last_name='Lennon', birthday=date(1940, 10, 9)
+diff --git a/tests/modeltests/timezones/tests.py b/tests/modeltests/timezones/tests.py
+index 171c218..4ecfe5d 100644
+--- a/tests/modeltests/timezones/tests.py
++++ b/tests/modeltests/timezones/tests.py
+@@ -975,6 +975,7 @@ class NewFormsTests(BaseDateTimeTests):
+ NewFormsTests = override_settings(DATETIME_FORMAT='c', USE_L10N=False, USE_TZ=True)(NewFormsTests)
+ 
+ #@override_settings(DATETIME_FORMAT='c', USE_L10N=False, USE_TZ=True)
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminTests(BaseDateTimeTests):
+ 
+     urls = 'modeltests.timezones.urls'
+diff --git a/tests/regressiontests/admin_custom_urls/tests.py b/tests/regressiontests/admin_custom_urls/tests.py
+index 13d065a..830edd3 100644
+--- a/tests/regressiontests/admin_custom_urls/tests.py
++++ b/tests/regressiontests/admin_custom_urls/tests.py
+@@ -3,10 +3,12 @@ from __future__ import absolute_import
+ from django.core.urlresolvers import reverse
+ from django.template.response import TemplateResponse
+ from django.test import TestCase
++from django.db import connection
++from django.utils.unittest import skipIf
+ 
+ from .models import Action
+ 
+-
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminCustomUrlsTest(TestCase):
+     fixtures = ['users.json', 'actions.json']
+ 
+diff --git a/tests/regressiontests/admin_views/tests.py b/tests/regressiontests/admin_views/tests.py
+index b695453..92625cf 100644
+--- a/tests/regressiontests/admin_views/tests.py
++++ b/tests/regressiontests/admin_views/tests.py
+@@ -32,6 +32,8 @@ from django.utils.encoding import iri_to_uri
+ from django.utils.html import escape
+ from django.utils.http import urlencode
+ from django.test.utils import override_settings
++from django.db import connection
++from django.utils.unittest import skipIf
+ 
+ # local test models
+ from .models import (Article, BarAccount, CustomArticle, EmptyModel, FooAccount,
+@@ -48,6 +50,7 @@ from .models import (Article, BarAccount, CustomArticle, EmptyModel, FooAccount,
+ ERROR_MESSAGE = "Please enter the correct username and password \
+ for a staff account. Note that both fields are case-sensitive."
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminViewBasicTest(TestCase):
+     fixtures = ['admin-views-users.xml', 'admin-views-colors.xml',
+                 'admin-views-fabrics.xml', 'admin-views-books.xml']
+@@ -584,6 +587,7 @@ class AdminViewBasicTest(TestCase):
+             self.fail("Filters should be allowed if they are defined on a ForeignKey pointing to this model")
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminViewFormUrlTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ["admin-views-users.xml"]
+@@ -615,6 +619,7 @@ class AdminViewFormUrlTest(TestCase):
+             self.assertTrue('custom_filter_template.html' in [t.name for t in response.templates])
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminJavaScriptTest(TestCase):
+     fixtures = ['admin-views-users.xml']
+ 
+@@ -682,6 +687,7 @@ class AdminJavaScriptTest(TestCase):
+             self.assertNotContains(response, 'inlines.min.js')
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class SaveAsTests(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml','admin-views-person.xml']
+@@ -711,6 +717,7 @@ class SaveAsTests(TestCase):
+         response = self.client.post('/test_admin/admin/admin_views/person/1/', post_data)
+         self.assertEqual(response.context['form_url'], '/test_admin/admin/admin_views/person/add/')
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class CustomModelAdminTest(AdminViewBasicTest):
+     urls = "regressiontests.admin_views.urls"
+     urlbit = "admin2"
+@@ -771,6 +778,7 @@ def get_perm(Model, perm):
+     ct = ContentType.objects.get_for_model(Model)
+     return Permission.objects.get(content_type=ct, codename=perm)
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminViewPermissionsTest(TestCase):
+     """Tests for Admin Views Permissions."""
+ 
+@@ -1215,6 +1223,7 @@ class AdminViewPermissionsTest(TestCase):
+         self.assertContains(response, 'id="login-form"')
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminViewsNoUrlTest(TestCase):
+     """Regression test for #17333"""
+ 
+@@ -1246,6 +1255,7 @@ class AdminViewsNoUrlTest(TestCase):
+         self.client.get('/test_admin/admin/logout/')
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminViewDeletedObjectsTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml', 'deleted-objects.xml']
+@@ -1362,6 +1372,7 @@ class AdminViewDeletedObjectsTest(TestCase):
+         response = self.client.get('/test_admin/admin/admin_views/plot/%s/delete/' % quote(3))
+         self.assertContains(response, should_contain)
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminViewStringPrimaryKeyTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml', 'string-primary-key.xml']
+@@ -1454,6 +1465,7 @@ class AdminViewStringPrimaryKeyTest(TestCase):
+         self.assertContains(response, should_contain)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class SecureViewTests(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -1612,6 +1624,7 @@ class SecureViewTests(TestCase):
+         self.assertEqual(response.status_code, 302)
+         self.assertEqual(response['Location'], 'http://example.com/users/super/')
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminViewUnicodeTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-unicode.xml']
+@@ -1666,6 +1679,7 @@ class AdminViewUnicodeTest(TestCase):
+         self.assertRedirects(response, '/test_admin/admin/admin_views/book/')
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminViewListEditable(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml', 'admin-views-person.xml']
+@@ -2040,6 +2054,7 @@ class AdminViewListEditable(TestCase):
+         self.assertContains(response, '<th><a href="%d/">%d</a></th>' % (story2.id, story2.id), 1)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminSearchTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users', 'multiple-child-classes',
+@@ -2087,6 +2102,7 @@ class AdminSearchTest(TestCase):
+         self.assertNotContains(response, "Guido")
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminInheritedInlinesTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml',]
+@@ -2173,6 +2189,7 @@ class AdminInheritedInlinesTest(TestCase):
+         self.assertEqual(BarAccount.objects.all()[0].username, "%s-1" % bar_user)
+         self.assertEqual(Persona.objects.all()[0].accounts.count(), 2)
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminActionsTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml', 'admin-views-actions.xml']
+@@ -2394,6 +2411,7 @@ class AdminActionsTest(TestCase):
+         self.assertEqual(response.context["action_form"], None)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class TestCustomChangeList(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -2422,6 +2440,7 @@ class TestCustomChangeList(TestCase):
+         self.assertNotContains(response, 'First Gadget')
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class TestInlineNotEditable(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -2440,6 +2459,7 @@ class TestInlineNotEditable(TestCase):
+         response = self.client.get('/test_admin/admin/admin_views/parent/add/')
+         self.assertEqual(response.status_code, 200)
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminCustomQuerysetTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -2495,6 +2515,7 @@ class AdminCustomQuerysetTest(TestCase):
+         # Message should contain non-ugly model name. Instance representation is set by model's __unicode__()
+         self.assertContains(response, '<li class="info">The cover letter &quot;John Doe II&quot; was changed successfully.</li>', html=True)
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminInlineFileUploadTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml', 'admin-views-actions.xml']
+@@ -2541,6 +2562,7 @@ class AdminInlineFileUploadTest(TestCase):
+         self.assertTrue(response._container[0].find("Currently:") > -1)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminInlineTests(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -2859,6 +2881,7 @@ class AdminInlineTests(TestCase):
+         self.assertEqual(Category.objects.get(id=4).order, 0)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class NeverCacheTests(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml', 'admin-views-colors.xml', 'admin-views-fabrics.xml']
+@@ -2932,6 +2955,7 @@ class NeverCacheTests(TestCase):
+         self.assertEqual(get_max_age(response), None)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class PrePopulatedTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -2967,6 +2991,7 @@ class PrePopulatedTest(TestCase):
+         self.assertContains(response, "maxLength: 1000") # instead of 1,000
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class SeleniumPrePopulatedFirefoxTests(AdminSeleniumWebDriverTestCase):
+     webdriver_class = 'selenium.webdriver.firefox.webdriver.WebDriver'
+     urls = "regressiontests.admin_views.urls"
+@@ -3081,6 +3106,7 @@ class SeleniumPrePopulatedIETests(SeleniumPrePopulatedFirefoxTests):
+     webdriver_class = 'selenium.webdriver.ie.webdriver.WebDriver'
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class ReadonlyTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -3154,6 +3180,7 @@ class ReadonlyTest(TestCase):
+         self.assertEquals(response.status_code, 404)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class RawIdFieldsTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -3187,6 +3214,7 @@ class RawIdFieldsTest(TestCase):
+         self.assertContains(response2, "Spain")
+         self.assertNotContains(response2, "England")
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class UserAdminTest(TestCase):
+     """
+     Tests user CRUD functionality.
+@@ -3287,6 +3315,7 @@ class UserAdminTest(TestCase):
+         self.assertEqual(response.context['form_url'], 'pony')
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class GroupAdminTest(TestCase):
+     """
+     Tests group CRUD functionality.
+@@ -3318,6 +3347,7 @@ class GroupAdminTest(TestCase):
+             self.assertEqual(response.status_code, 200)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class CSSTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -3351,6 +3381,7 @@ except ImportError:
+     docutils = None
+ 
+ #@unittest.skipUnless(docutils, "no docutils installed.")
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminDocsTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -3394,6 +3425,7 @@ class AdminDocsTest(TestCase):
+ 
+ AdminDocsTest = unittest.skipUnless(docutils, "no docutils installed.")(AdminDocsTest)
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class ValidXHTMLTests(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -3425,6 +3457,7 @@ class ValidXHTMLTests(TestCase):
+         self.assertFalse(' xml:lang=""' in response.content)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class DateHierarchyTests(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+@@ -3551,6 +3584,7 @@ class DateHierarchyTests(TestCase):
+             self.assert_non_localized_year(response, 2003)
+             self.assert_non_localized_year(response, 2005)
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminCustomSaveRelatedTests(TestCase):
+     """
+     Ensure that one can easily customize the way related objects are saved.
+@@ -3619,6 +3653,7 @@ class AdminCustomSaveRelatedTests(TestCase):
+         self.assertEqual([u'Catherine Stone', u'Paul Stone'], children_names)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AdminViewLogoutTest(TestCase):
+     urls = "regressiontests.admin_views.urls"
+     fixtures = ['admin-views-users.xml']
+diff --git a/tests/regressiontests/aggregation_regress/tests.py b/tests/regressiontests/aggregation_regress/tests.py
+index 36a54c0..e002893 100644
+--- a/tests/regressiontests/aggregation_regress/tests.py
++++ b/tests/regressiontests/aggregation_regress/tests.py
+@@ -8,10 +8,13 @@ from operator import attrgetter
+ from django.core.exceptions import FieldError
+ from django.db.models import Count, Max, Avg, Sum, StdDev, Variance, F, Q
+ from django.test import TestCase, Approximate, skipUnlessDBFeature
++from django.utils.unittest import skipIf
++from django.db import connection
+ 
+ from .models import Author, Book, Publisher, Clues, Entries, HardbackBook
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AggregationTests(TestCase):
+     fixtures = ["aggregation_regress.json"]
+ 
+diff --git a/tests/regressiontests/backends/tests.py b/tests/regressiontests/backends/tests.py
+index 193d01b..a6e8a18 100644
+--- a/tests/regressiontests/backends/tests.py
++++ b/tests/regressiontests/backends/tests.py
+@@ -466,6 +466,7 @@ class FkConstraintsTests(TransactionTestCase):
+             finally:
+                 transaction.rollback()
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'check_constraints not implemented')
+     def test_check_constraints(self):
+         """
+         Constraint checks should raise an IntegrityError when bad data is in the DB.
+diff --git a/tests/regressiontests/delete_regress/tests.py b/tests/regressiontests/delete_regress/tests.py
+index 32feae2..3c8d658 100644
+--- a/tests/regressiontests/delete_regress/tests.py
++++ b/tests/regressiontests/delete_regress/tests.py
+@@ -3,8 +3,9 @@ from __future__ import absolute_import
+ import datetime
+ 
+ from django.conf import settings
+-from django.db import backend, transaction, DEFAULT_DB_ALIAS
++from django.db import backend, transaction, DEFAULT_DB_ALIAS, connection
+ from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
++from django.utils.unittest import skipIf
+ 
+ from .models import (Book, Award, AwardNote, Person, Child, Toy, PlayedWith,
+     PlayedWithNote, Email, Researcher, Food, Eaten, Policy, Version, Location,
+@@ -37,6 +38,7 @@ class DeleteLockingTest(TransactionTestCase):
+         transaction.leave_transaction_management()
+         self.conn2.close()
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Test assumes READ COMMITTED isolation')
+     @skipUnlessDBFeature('test_db_allows_multiple_connections')
+     def test_concurrent_delete(self):
+         "Deletes on concurrent transactions don't collide and lock the database. Regression for #9479"
+diff --git a/tests/regressiontests/extra_regress/tests.py b/tests/regressiontests/extra_regress/tests.py
+index 67efb42..6228d50 100644
+--- a/tests/regressiontests/extra_regress/tests.py
++++ b/tests/regressiontests/extra_regress/tests.py
+@@ -5,6 +5,8 @@ import datetime
+ from django.contrib.auth.models import User
+ from django.test import TestCase
+ from django.utils.datastructures import SortedDict
++from django.db import connection
++from django.utils.unittest import skipIf
+ 
+ from .models import TestObject, Order, RevisionableModel
+ 
+@@ -168,6 +170,7 @@ class ExtraRegressTests(TestCase):
+             ['datetime.datetime(2008, 9, 1, 0, 0)']
+         )
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
+     def test_values_with_extra(self):
+         """
+         Regression test for #10256... If there is a values() clause, Extra
+diff --git a/tests/regressiontests/fixtures_regress/tests.py b/tests/regressiontests/fixtures_regress/tests.py
+index ed8b404..7fa628c 100644
+--- a/tests/regressiontests/fixtures_regress/tests.py
++++ b/tests/regressiontests/fixtures_regress/tests.py
+@@ -17,6 +17,8 @@ from django.db.models import signals
+ from django.test import (TestCase, TransactionTestCase, skipIfDBFeature,
+     skipUnlessDBFeature)
+ from django.test.utils import override_settings
++from django.db import connection
++from django.utils.unittest import skipIf
+ 
+ from .models import (Animal, Stuff, Absolute, Parent, Child, Article, Widget,
+     Store, Person, Book, NKChild, RefToNKChild, Circle1, Circle2, Circle3,
+@@ -375,6 +377,7 @@ class TestFixtures(TestCase):
+         self.assertEqual(Book.objects.all()[0].id, 1)
+         self.assertEqual(Person.objects.all()[0].id, 4)
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'check_constraints() not implemented')
+     def test_loaddata_raises_error_when_fixture_has_invalid_foreign_key(self):
+         """
+         Regression for #3615 - Ensure data with nonexistent child key references raises error
+diff --git a/tests/regressiontests/generic_inline_admin/tests.py b/tests/regressiontests/generic_inline_admin/tests.py
+index 237e396..210a666 100644
+--- a/tests/regressiontests/generic_inline_admin/tests.py
++++ b/tests/regressiontests/generic_inline_admin/tests.py
+@@ -10,6 +10,8 @@ from django.contrib.contenttypes.generic import (
+ from django.forms.formsets import DEFAULT_MAX_NUM
+ from django.forms.models import ModelForm
+ from django.test import TestCase
++from django.db import connection
++from django.utils.unittest import skipIf
+ 
+ # local test models
+ from .admin import MediaInline, MediaPermanentInline
+@@ -17,6 +19,7 @@ from .models import (Episode, EpisodeExtra, EpisodeMaxNum, Media,
+     EpisodePermanent, Category)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class GenericAdminViewTest(TestCase):
+     urls = "regressiontests.generic_inline_admin.urls"
+     fixtures = ['users.xml']
+@@ -129,6 +132,7 @@ class GenericAdminViewTest(TestCase):
+         formset = inline_formset(instance=e)
+         self.assertTrue(formset.get_queryset().ordered)
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class GenericInlineAdminParametersTest(TestCase):
+     urls = "regressiontests.generic_inline_admin.urls"
+     fixtures = ['users.xml']
+@@ -182,6 +186,7 @@ class GenericInlineAdminParametersTest(TestCase):
+         self.assertEqual(formset.initial_form_count(), 1)
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class GenericInlineAdminWithUniqueTogetherTest(TestCase):
+     urls = "regressiontests.generic_inline_admin.urls"
+     fixtures = ['users.xml']
+diff --git a/tests/regressiontests/model_fields/models.py b/tests/regressiontests/model_fields/models.py
+index d9c123f..78d135a 100644
+--- a/tests/regressiontests/model_fields/models.py
++++ b/tests/regressiontests/model_fields/models.py
+@@ -14,7 +14,7 @@ except ImportError:
+         Image = None
+ 
+ from django.core.files.storage import FileSystemStorage
+-from django.db import models
++from django.db import models, connection
+ from django.db.models.fields.files import ImageFieldFile, ImageField
+ 
+ 
+@@ -46,7 +46,8 @@ class Whiz(models.Model):
+     c = models.IntegerField(choices=CHOICES, null=True)
+ 
+ class BigD(models.Model):
+-    d = models.DecimalField(max_digits=38, decimal_places=30)
++    prec,scale = connection.vendor != 'fdbsql' and (38,30) or (30,22)
++    d = models.DecimalField(max_digits=prec, decimal_places=scale)
+ 
+ class BigS(models.Model):
+     s = models.SlugField(max_length=255)
+diff --git a/tests/regressiontests/multiple_database/tests.py b/tests/regressiontests/multiple_database/tests.py
+index e2f433e..1fa1058 100644
+--- a/tests/regressiontests/multiple_database/tests.py
++++ b/tests/regressiontests/multiple_database/tests.py
+@@ -8,9 +8,10 @@ from django.conf import settings
+ from django.contrib.auth.models import User
+ from django.contrib.contenttypes.models import ContentType
+ from django.core import management
+-from django.db import connections, router, DEFAULT_DB_ALIAS
++from django.db import connections, router, DEFAULT_DB_ALIAS, connection
+ from django.db.models import signals
+ from django.test import TestCase
++from django.utils.unittest import skipIf
+ 
+ from .models import Book, Person, Pet, Review, UserProfile
+ 
+@@ -1653,6 +1654,7 @@ class FixtureTestCase(TestCase):
+         # Restore the 'other' database as an independent database
+         router.routers = self.old_routers
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+     def test_fixture_loading(self):
+         "Multi-db fixtures are loaded correctly"
+         # Check that "Pro Django" exists on the default database, but not on other database
+@@ -1690,6 +1692,7 @@ class FixtureTestCase(TestCase):
+         except Book.DoesNotExist:
+             self.fail('"The Definitive Guide to Django" should exist on both databases')
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+     def test_pseudo_empty_fixtures(self):
+         "A fixture can contain entries, but lead to nothing in the database; this shouldn't raise an error (ref #14068)"
+         new_io = StringIO()
+diff --git a/tests/regressiontests/special_headers/tests.py b/tests/regressiontests/special_headers/tests.py
+index 4de518c..56cd13e 100644
+--- a/tests/regressiontests/special_headers/tests.py
++++ b/tests/regressiontests/special_headers/tests.py
+@@ -2,8 +2,11 @@ import warnings
+ 
+ from django.contrib.auth.models import User
+ from django.test import TestCase
++from django.utils.unittest import skipIf
++from django.db import connection
+ 
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class SpecialHeadersTest(TestCase):
+     fixtures = ['data.xml']
+     urls = 'regressiontests.special_headers.urls'
+diff --git a/tests/regressiontests/syndication/tests.py b/tests/regressiontests/syndication/tests.py
+index 95b4efb..423667b 100644
+--- a/tests/regressiontests/syndication/tests.py
++++ b/tests/regressiontests/syndication/tests.py
+@@ -7,6 +7,8 @@ from django.core.exceptions import ImproperlyConfigured
+ from django.test import TestCase
+ from django.utils import tzinfo
+ from django.utils.feedgenerator import rfc2822_date, rfc3339_date
++from django.db import connection
++from django.utils.unittest import skipIf
+ 
+ from .models import Entry
+ 
+@@ -31,6 +33,7 @@ class FeedTestCase(TestCase):
+ # Feed view
+ ######################################
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class SyndicationFeedTest(FeedTestCase):
+     """
+     Tests for the high-level syndication feed framework.
+diff --git a/tests/regressiontests/views/tests/generic/create_update.py b/tests/regressiontests/views/tests/generic/create_update.py
+index 2abcfb4..3a54e28 100644
+--- a/tests/regressiontests/views/tests/generic/create_update.py
++++ b/tests/regressiontests/views/tests/generic/create_update.py
+@@ -4,6 +4,8 @@ import warnings
+ from django.test import TestCase
+ from django.core.exceptions import ImproperlyConfigured
+ from regressiontests.views.models import Article, UrlArticle
++from django.db import connection
++from django.utils.unittest import skipIf
+ 
+ class CreateObjectTest(TestCase):
+     fixtures = ['testdata.json']
+@@ -223,6 +225,7 @@ class NoPostSaveNoAbsoluteUrl(PostSaveRedirectTests):
+         """
+         pass
+ 
++@skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+ class AbsoluteUrlNoPostSave(PostSaveRedirectTests):
+     """
+     Tests that the views redirect to the Model's get_absolute_url when no

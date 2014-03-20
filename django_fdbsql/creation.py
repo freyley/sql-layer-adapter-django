@@ -1,29 +1,57 @@
+# FoundationDB SQL Layer Adapter for Django
+# Copyright (c) 2013-2014FoundationDB, LLC
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+import time
+
 from django.db.backends.creation import BaseDatabaseCreation
 from django.db.backends.util import truncate_name
 
+from helpers import fdb_get_input
+
 class DatabaseCreation(BaseDatabaseCreation):
     data_types = {
-        'AutoField':         'serial',
-        'BooleanField':      'boolean',
-        'CharField':         'varchar(%(max_length)s)',
-        'CommaSeparatedIntegerField': 'varchar(%(max_length)s)',
-        'DateField':         'date',
-        'DateTimeField':     'datetime',
-        'DecimalField':      'numeric(%(max_digits)s, %(decimal_places)s)',
-        'FileField':         'varchar(%(max_length)s)',
-        'FilePathField':     'varchar(%(max_length)s)',
-        'FloatField':        'double precision',
-        'IntegerField':      'integer',
-        'BigIntegerField':   'bigint',
-        'IPAddressField':    'char(15)',
-        'NullBooleanField':  'boolean',
-        'OneToOneField':     'integer',
-        'PositiveIntegerField': 'integer unsigned',
-        'PositiveSmallIntegerField': 'smallint unsigned',
-        'SlugField':         'varchar(%(max_length)s)',
-        'SmallIntegerField': 'smallint',
-        'TextField':         'text',
-        'TimeField':         'time',
+        'AutoField':                    'serial',
+        'BigIntegerField':              'bigint',
+        'BinaryField':                  'blob',
+        'BooleanField':                 'boolean',
+        'CharField':                    'varchar(%(max_length)s)',
+        'CommaSeparatedIntegerField':   'varchar(%(max_length)s)',
+        'DateField':                    'date',
+        'DateTimeField':                'datetime',
+        'DecimalField':                 'decimal(%(max_digits)s, %(decimal_places)s)',
+        'FileField':                    'varchar(%(max_length)s)',
+        'FilePathField':                'varchar(%(max_length)s)',
+        'FloatField':                   'double',
+        'GenericIPAddressField':        'char(39)',
+        'IPAddressField':               'char(15)',
+        'IntegerField':                 'integer',
+        'NullBooleanField':             'boolean',
+        'OneToOneField':                'integer',
+        # Currently no way (e.g. CHECK) to enforce unsigned
+        'PositiveIntegerField':         'integer',
+        'PositiveSmallIntegerField':    'smallint',
+        'SlugField':                    'varchar(%(max_length)s)',
+        'SmallIntegerField':            'smallint',
+        'TextField':                    'clob',
+        'TimeField':                    'time',
     }
 
     def sql_table_creation_suffix(self):
@@ -33,52 +61,48 @@ class DatabaseCreation(BaseDatabaseCreation):
         if self.connection.settings_dict['TEST_COLLATION']:
             suffix.append('COLLATE %s' % self.connection.settings_dict['TEST_COLLATION'])
         return ' '.join(suffix)
-    
-    def sql_for_inline_foreign_key_references(self, field, known_models, style):
-        "All inline references are pending under FoundationDB SQL"
-        return [], True
 
-    def sql_for_pending_references(self, model, style, pending_references):
-        "Returns any ALTER TABLE statements to add constraints after the fact."
-        from django.db.backends.util import truncate_name
-        return []
+    def _create_test_db(self, verbosity, autoclobber):
+        """
+        Internal implementation - creates the test db tables.
+        """
+        suffix = self.sql_table_creation_suffix()
+        test_database_name = self._get_test_db_name()
+        qn = self.connection.ops.quote_name
+        # Create the test database and connect to it.
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute("CREATE SCHEMA %s %s" % (qn(test_database_name), suffix))
+        except Exception, e:
+            import sys
+            sys.stderr.write("Got an error creating the test database: %s\n" % e)
+            if not autoclobber:
+                confirm = fdb_get_input("Type 'yes' if you would like to try deleting the test database '%s', or 'no' to cancel: " % test_database_name)
+            if autoclobber or confirm == 'yes':
+                try:
+                    if verbosity >= 1:
+                        print("Destroying old test database '%s'..." % self.connection.alias)
+                    cursor.execute("DROP SCHEMA %s CASCADE" % qn(test_database_name))
+                    cursor.execute("CREATE SCHEMA %s %s" % (qn(test_database_name), suffix))
+                except Exception, e:
+                    sys.stderr.write("Got an error recreating the test database: %s\n" % e)
+                    sys.exit(2)
+            else:
+                print("Tests cancelled.")
+                sys.exit(1)
+        return test_database_name
 
-    # TODO
-    #def sql_indexes_for_field(self, model, f, style):
-    #    if f.db_index and not f.unique:
-    #        qn = self.connection.ops.quote_name
-    #        db_table = model._meta.db_table
-    #        tablespace = f.db_tablespace or model._meta.db_tablespace
-    #        if tablespace:
-    #            sql = self.connection.ops.tablespace_sql(tablespace)
-    #            if sql:
-    #                tablespace_sql = ' ' + sql
-    #            else:
-    #                tablespace_sql = ''
-    #        else:
-    #            tablespace_sql = ''
+    def _destroy_test_db(self, test_database_name, verbosity):
+        """
+        Internal implementation - remove the test db tables.
+        """
+        # Remove the test database to clean up after
+        # ourselves. Connect to the previous database (not the test database)
+        # to do so, because it's not allowed to delete a database while being
+        # connected to it.
+        cursor = self.connection.cursor()
+        # Wait to avoid "database is being accessed by other users" errors.
+        time.sleep(1)
+        cursor.execute("DROP SCHEMA %s CASCADE" % self.connection.ops.quote_name(test_database_name))
+        self.connection.close()
 
-    #        def get_index_sql(index_name, opclass=''):
-    #            return (style.SQL_KEYWORD('CREATE INDEX') + ' ' +
-    #                    style.SQL_TABLE(qn(truncate_name(index_name,self.connection.ops.max_name_length()))) + ' ' +
-    #                    style.SQL_KEYWORD('ON') + ' ' +
-    #                    style.SQL_TABLE(qn(db_table)) + ' ' +
-    #                    "(%s%s)" % (style.SQL_FIELD(qn(f.column)), opclass) +
-    #                    "%s;" % tablespace_sql)
-
-    #        output = [get_index_sql('%s_%s' % (db_table, f.column))]
-
-    #        # Fields with database column types of `varchar` and `text` need
-    #        # a second index that specifies their operator class, which is
-    #        # needed when performing correct LIKE queries outside the
-    #        # C locale. See #12234.
-    #        db_type = f.db_type(connection=self.connection)
-    #        if db_type.startswith('varchar'):
-    #            output.append(get_index_sql('%s_%s_like' % (db_table, f.column),
-    #                                        ' varchar_pattern_ops'))
-    #        elif db_type.startswith('text'):
-    #            output.append(get_index_sql('%s_%s_like' % (db_table, f.column),
-    #                                        ' text_pattern_ops'))
-    #    else:
-    #        output = []
-    #    return output

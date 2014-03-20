@@ -1,0 +1,182 @@
+diff --git a/tests/modeltests/get_or_create/tests.py b/tests/modeltests/get_or_create/tests.py
+index 1e300fb..1231c47 100644
+--- a/tests/modeltests/get_or_create/tests.py
++++ b/tests/modeltests/get_or_create/tests.py
+@@ -4,12 +4,13 @@ from datetime import date
+ import traceback
+ 
+ from django.db import IntegrityError
+-from django.test import TestCase
++from django.test import TestCase, skipUnlessDBFeature
+ 
+ from .models import Person, ManualPrimaryKeyTest
+ 
+ 
+ class GetOrCreateTests(TestCase):
++    @skipUnlessDBFeature('uses_savepoints')
+     def test_get_or_create(self):
+         p = Person.objects.create(
+             first_name='John', last_name='Lennon', birthday=date(1940, 10, 9)
+diff --git a/tests/regressiontests/aggregation_regress/tests.py b/tests/regressiontests/aggregation_regress/tests.py
+index 65d345a..9d06e8e 100644
+--- a/tests/regressiontests/aggregation_regress/tests.py
++++ b/tests/regressiontests/aggregation_regress/tests.py
+@@ -9,6 +9,8 @@ from django.core.exceptions import FieldError
+ from django.db.models import Count, Max, Avg, Sum, StdDev, Variance, F, Q
+ from django.test import TestCase, Approximate, skipUnlessDBFeature
+ from django.utils import six
++from django.utils.unittest import skipIf
++from django.db import connection
+ 
+ from .models import Author, Book, Publisher, Clues, Entries, HardbackBook
+ 
+@@ -375,6 +377,7 @@ class AggregationTests(TestCase):
+             lambda p: p,
+         )
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Unsupported mix of DISTINCT and non-DISTINCT')
+     def test_db_col_table(self):
+         # Tests on fields with non-default table and column names.
+         qs = Clues.objects.values('EntryID__Entry').annotate(Appearances=Count('EntryID'), Distinct_Clues=Count('Clue', distinct=True))
+diff --git a/tests/regressiontests/backends/tests.py b/tests/regressiontests/backends/tests.py
+index b92d3b9..3efdfc7 100644
+--- a/tests/regressiontests/backends/tests.py
++++ b/tests/regressiontests/backends/tests.py
+@@ -530,6 +530,7 @@ class FkConstraintsTests(TransactionTestCase):
+             finally:
+                 transaction.rollback()
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'check_constraints not implemented')
+     def test_check_constraints(self):
+         """
+         Constraint checks should raise an IntegrityError when bad data is in the DB.
+diff --git a/tests/regressiontests/delete_regress/tests.py b/tests/regressiontests/delete_regress/tests.py
+index 1bc4e78..c34f87b 100644
+--- a/tests/regressiontests/delete_regress/tests.py
++++ b/tests/regressiontests/delete_regress/tests.py
+@@ -3,8 +3,9 @@ from __future__ import absolute_import
+ import datetime
+ 
+ from django.conf import settings
+-from django.db import backend, transaction, DEFAULT_DB_ALIAS, models
++from django.db import backend, transaction, DEFAULT_DB_ALIAS, models, connection
+ from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
++from django.utils.unittest import skipIf
+ 
+ from .models import (Book, Award, AwardNote, Person, Child, Toy, PlayedWith,
+     PlayedWithNote, Email, Researcher, Food, Eaten, Policy, Version, Location,
+@@ -38,6 +39,7 @@ class DeleteLockingTest(TransactionTestCase):
+         transaction.leave_transaction_management()
+         self.conn2.close()
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Test assumes READ COMMITTED isolation')
+     @skipUnlessDBFeature('test_db_allows_multiple_connections')
+     def test_concurrent_delete(self):
+         "Deletes on concurrent transactions don't collide and lock the database. Regression for #9479"
+diff --git a/tests/regressiontests/extra_regress/tests.py b/tests/regressiontests/extra_regress/tests.py
+index f591900..123fce1 100644
+--- a/tests/regressiontests/extra_regress/tests.py
++++ b/tests/regressiontests/extra_regress/tests.py
+@@ -5,6 +5,8 @@ import datetime
+ from django.contrib.auth.models import User
+ from django.test import TestCase
+ from django.utils.datastructures import SortedDict
++from django.db import connection
++from django.utils.unittest import skipIf
+ 
+ from .models import TestObject, Order, RevisionableModel
+ 
+@@ -168,6 +170,7 @@ class ExtraRegressTests(TestCase):
+             ['datetime.datetime(2008, 9, 1, 0, 0)']
+         )
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
+     def test_values_with_extra(self):
+         """
+         Regression test for #10256... If there is a values() clause, Extra
+@@ -314,6 +317,7 @@ class ExtraRegressTests(TestCase):
+             ['<TestObject: TestObject: first,second,third>']
+         )
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
+     def test_regression_17877(self):
+         """
+         Ensure that extra WHERE clauses get correctly ANDed, even when they
+diff --git a/tests/regressiontests/fixtures_regress/tests.py b/tests/regressiontests/fixtures_regress/tests.py
+index 61dc446..3a8e078 100644
+--- a/tests/regressiontests/fixtures_regress/tests.py
++++ b/tests/regressiontests/fixtures_regress/tests.py
+@@ -18,6 +18,8 @@ from django.utils.encoding import force_text
+ from django.utils._os import upath
+ from django.utils import six
+ from django.utils.six import PY3, StringIO
++from django.db import connection
++from django.utils.unittest import skipIf
+ import json
+ 
+ from .models import (Animal, Stuff, Absolute, Parent, Child, Article, Widget,
+@@ -380,6 +382,7 @@ class TestFixtures(TestCase):
+         self.assertEqual(Book.objects.all()[0].id, 1)
+         self.assertEqual(Person.objects.all()[0].id, 4)
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'check_constraints() not implemented')
+     def test_loaddata_raises_error_when_fixture_has_invalid_foreign_key(self):
+         """
+         Regression for #3615 - Ensure data with nonexistent child key references raises error
+diff --git a/tests/regressiontests/model_fields/models.py b/tests/regressiontests/model_fields/models.py
+index 1d20f44..0976feb 100644
+--- a/tests/regressiontests/model_fields/models.py
++++ b/tests/regressiontests/model_fields/models.py
+@@ -14,7 +14,7 @@ except ImportError:
+         Image = None
+ 
+ from django.core.files.storage import FileSystemStorage
+-from django.db import models
++from django.db import models, connection
+ from django.db.models.fields.files import ImageFieldFile, ImageField
+ 
+ 
+@@ -46,7 +46,8 @@ class Whiz(models.Model):
+     c = models.IntegerField(choices=CHOICES, null=True)
+ 
+ class BigD(models.Model):
+-    d = models.DecimalField(max_digits=38, decimal_places=30)
++    prec,scale = connection.vendor != 'fdbsql' and (38,30) or (30,22)
++    d = models.DecimalField(max_digits=prec, decimal_places=scale)
+ 
+ class BigS(models.Model):
+     s = models.SlugField(max_length=255)
+diff --git a/tests/regressiontests/multiple_database/tests.py b/tests/regressiontests/multiple_database/tests.py
+index f2ecfbe..27c569d 100644
+--- a/tests/regressiontests/multiple_database/tests.py
++++ b/tests/regressiontests/multiple_database/tests.py
+@@ -7,11 +7,12 @@ from operator import attrgetter
+ from django.contrib.auth.models import User
+ from django.contrib.contenttypes.models import ContentType
+ from django.core import management
+-from django.db import connections, router, DEFAULT_DB_ALIAS
++from django.db import connections, router, DEFAULT_DB_ALIAS, connection
+ from django.db.models import signals
+ from django.test import TestCase
+ from django.test.utils import override_settings
+ from django.utils.six import StringIO
++from django.utils.unittest import skipIf
+ 
+ from .models import Book, Person, Pet, Review, UserProfile
+ 
+@@ -1639,6 +1640,7 @@ class FixtureTestCase(TestCase):
+         # Restore the 'other' database as an independent database
+         router.routers = self.old_routers
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+     def test_fixture_loading(self):
+         "Multi-db fixtures are loaded correctly"
+         # Check that "Pro Django" exists on the default database, but not on other database
+@@ -1676,6 +1678,7 @@ class FixtureTestCase(TestCase):
+         except Book.DoesNotExist:
+             self.fail('"The Definitive Guide to Django" should exist on both databases')
+ 
++    @skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
+     def test_pseudo_empty_fixtures(self):
+         "A fixture can contain entries, but lead to nothing in the database; this shouldn't raise an error (ref #14068)"
+         new_io = StringIO()

@@ -2,26 +2,41 @@
 FoundationDB SQL Layer Django Adapter
 *************************************
 
-The `FoundationDB SQL Layer <https://github.com/FoundationDB/sql-layer>`_ is a
-full SQL implementation built upon the `FoundationDB <https://foundationdb.com>`_'s
-storage substrate. It provides the same high performance, multi-node scalability,
-fault-tolerance, and true multi-key ACID transactions.
+The `FoundationDB SQL Layer <https://github.com/FoundationDB/sql-layer>`_ is a full
+SQL implementation built on the `FoundationDB <https://foundationdb.com>`_ storage
+substrate. It provides high performance, multi-node scalability, fault-tolerance
+and true multi-key ACID transactions.
 
 This project provides a database backend for `Django <https://www.djangoproject.com>`_
 and `South <http://south.aeracode.org>`_.
 
 
+Supported SQL Layer Versions
+============================
+
+Version 1.9.4 is the minimum recommended release for use with this adapter.
+
+While 1.9.3 is allowed, there are a number of known limitations preventing
+complete support.
+
+All previous releases are unsupported.
+
+
 Supported Django Versions
 =========================
 
-Django versions 1.3, 1.4 and 1.5 are known to work and have been tested with sample
-applications. However, this project is still in the alpha stages so there are most
-likely cases that haven't been covered. Do let us know (see *Contact* section below)
-if you run into any problems.
+Django versions 1.3 through 1.6 are fully functional. Support for the 1.7 series
+will be added once it is stable.
 
 
 Quick Start
 ===========
+
+    Important:
+    
+    The `SQL Layer <https://github.com/FoundationDB/sql-layer>`_ must be installed and
+    running before attempting to use this adapter.
+
 
 1. Install the adapter::
     
@@ -34,10 +49,10 @@ Quick Start
           'ENGINE': 'django_fdbsql',
           'NAME': 'test_schema',
           ## Defaults
-          #'HOST': 'localhost',
-          #'PORT': '15432',
-          #'USER': 'django_test',
-          #'PASSWORD': '',
+          'HOST': 'localhost',
+          'PORT': '15432',
+          'USER': 'django',
+          'PASSWORD': '',
         }
     }
 
@@ -65,7 +80,7 @@ Contact
 =======
 
 * GitHub: http://github.com/FoundationDB/sql-layer-adapter-django
-* Community: http://community.foundationdb.com
+* Community: https://foundationdb.com/community
 * IRC: #FoundationDB on irc.freenode.net
 
 
@@ -73,7 +88,7 @@ License
 =======
 
 | The MIT License (MIT)
-| Copyright (c) 2013 FoundationDB, LLC
+| Copyright (c) 2013-2014 FoundationDB, LLC
 | It is free software and may be redistributed under the terms specified
   in the LICENSE file.
 

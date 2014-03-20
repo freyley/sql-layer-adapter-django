@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name            = 'django_fdbsql',
-    version         = '0.1.0',
+    version         = '1.0.0',
     author          = 'FoundationDB',
     author_email    = 'distribution@foundationdb.com',
     description     = 'Django database backend for the FoundationDB SQL Layer.',
@@ -12,10 +12,11 @@ setup(
     license         = 'LICENSE',
     long_description= open('README.rst').read(),
     install_requires = [
-        "Django >= 1.3.0"
+        "Django >= 1.3.0",
+        "Django  < 1.7.0"
     ],
     classifiers = [
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
