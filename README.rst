@@ -38,9 +38,15 @@ Quick Start
     running before attempting to use this adapter.
 
 
-1. Install the adapter::
-    
-    $ sudo pip install git+https://github.com/FoundationDB/sql-layer-adapter-django.git
+1. Install the adapter (*one* of the following):
+
+   * Stable release::
+
+     $ sudo pip install django_fdbsql
+
+   * Latest development version::
+
+     $ sudo pip install git+https://github.com/FoundationDB/sql-layer-adapter-django.git
 
 2. Edit ``settings.py`` or ``settings_local.py``::
     
