@@ -9,6 +9,12 @@ DATABASES = {
     }
 }
 
+# And also add 'south' to ALWAYS_INSTALLED_APPS in runtests.py
+SKIP_SOUTH_TESTS = False
+SOUTH_DATABASE_ADAPTERS = {
+    'default': 'django_fdbsql.south_fdbsql'
+}
+
 SECRET_KEY = "django_tests_secret_key"
 
 PASSWORD_HASHERS = (
