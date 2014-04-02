@@ -23,14 +23,14 @@ from distutils.core import setup
 
 setup(
     name            = 'django-fdbsql',
-    version         = '1.0.0',
+    version         = '1.0.1',
     author          = 'FoundationDB',
     author_email    = 'distribution@foundationdb.com',
     description     = 'FoundationDB SQL Layer database backend for Django.',
     url             = 'https://github.com/FoundationDB/sql-layer-adapter-django',
     packages        = ['django_fdbsql'],
     scripts         = [],
-    license         = 'LICENSE',
+    license         = 'MIT',
     long_description= open('README.rst').read(),
     install_requires = [],
     classifiers = [
