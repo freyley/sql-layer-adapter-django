@@ -22,11 +22,11 @@
 from distutils.core import setup
 
 setup(
-    name            = 'django_fdbsql',
+    name            = 'django-fdbsql',
     version         = '1.0.0',
     author          = 'FoundationDB',
     author_email    = 'distribution@foundationdb.com',
-    description     = 'FoundationDB SQL layer database backend for Django.',
+    description     = 'FoundationDB SQL Layer database backend for Django.',
     url             = 'https://github.com/FoundationDB/sql-layer-adapter-django',
     packages        = ['django_fdbsql'],
     scripts         = [],

@@ -42,7 +42,7 @@ Quick Start
 
    * Stable release::
 
-     $ sudo pip install django_fdbsql
+     $ sudo pip install django-fdbsql
 
    * Latest development version::
 
