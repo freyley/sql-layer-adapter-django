@@ -14,12 +14,9 @@ and `South <http://south.aeracode.org>`_.
 Supported SQL Layer Versions
 ============================
 
-Version 1.9.4 is the minimum recommended release for use with this adapter.
+Version 2.0.0 is the recommended release for use with this adapter.
 
-While 1.9.3 is allowed, there are a number of known limitations preventing
-complete support.
-
-All previous releases are unsupported.
+Releases back to 1.9.3 will work and any prior to that will not.
 
 
 Supported Django Versions

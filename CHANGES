@@ -1,2 +1,3 @@
+v1.1.0, 2014-09-10 -- Support for SQL Layer 2.0.0
 v1.0.0, 2014-03-20 -- Stable and passing entire Django test suite.
 v0.1.0, 2013-09-30 -- Initial release.
