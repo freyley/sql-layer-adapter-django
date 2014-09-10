@@ -143,11 +143,18 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     supports_forward_references = False
     supports_microsecond_precision = False
     supports_regex_backreferencing = True
-    supports_sequence_reset = True
+    # Off by default as ALTER RESTART WITH auto-commits, breaking test assumptions.
+    # __init__ below allows via configuration for manual usage.
+    supports_sequence_reset = False
     # If there is a type that supports timezones for when USE_TZ=False
     supports_timezones = False
     supports_transactions = True
     uses_savepoints = False
+
+    def __init__(self, connection):
+        super(DatabaseFeatures, self).__init__(connection)
+        self.supports_sequence_reset = connection.settings_dict.get('OPTIONS', {}).get('supports_sequence_reset', False)
+
 
 class DatabaseWrapper(BaseDatabaseWrapper):
     Database = DBAPI
@@ -242,8 +249,9 @@ class DatabaseWrapper(BaseDatabaseWrapper):
             'database': settings_dict['NAME'],
         }
         conn_params.update(settings_dict['OPTIONS'])
-        if 'autocommit' in conn_params:
-            del conn_params['autocommit']
+        # Adapter options that don't apply to the connection
+        conn_params.pop('autocommit', False)
+        conn_params.pop('supports_sequence_reset', False)
         user = settings_dict.get('USER', '')
         password = fdb_force_str(settings_dict.get('PASSWORD', ''))
         host = settings_dict.get('HOST', '')
