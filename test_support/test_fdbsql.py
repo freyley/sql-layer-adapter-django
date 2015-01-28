@@ -1,3 +1,4 @@
+# https://docs.djangoproject.com/en/1.7/internals/contributing/writing-code/unit-tests/#using-another-settings-module
 DATABASES = {
     'default': {
         'ENGINE': 'django_fdbsql',
@@ -7,9 +8,9 @@ DATABASES = {
             'use_sequence_reset_function': True,
         },
     },
+    # Nothing adapter specific, only used to confirm multiple DATABASES work.
     'other': {
-        'ENGINE': 'django_fdbsql',
-        'NAME': 'django_other',
+        'ENGINE': 'django.db.backends.sqlite3',
     }
 }
 
