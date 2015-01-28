@@ -325,6 +325,8 @@ class DatabaseOperations(BaseDatabaseOperations):
             return 'BITAND(%s)' % ','.join(sub_expressions)
         if connector == '|':
             return 'BITOR(%s)' % ','.join(sub_expressions)
+        if connector == '^':
+            return 'POW(%s)' % ','.join(sub_expressions)
         conn = ' %s ' % connector
         return conn.join(sub_expressions)
     

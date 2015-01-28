@@ -25,7 +25,14 @@ DJANGO_MAJ_MIN = DJANGO_VERSION[0:2]
 DJANGO_GTEQ_1_4 = (DJANGO_MAJ_MIN >= (1,4))
 DJANGO_GTEQ_1_5 = (DJANGO_MAJ_MIN >= (1,5))
 DJANGO_GTEQ_1_6 = (DJANGO_MAJ_MIN >= (1,6))
+DJANGO_GTEQ_1_7 = (DJANGO_MAJ_MIN >= (1,7))
 
+if DJANGO_GTEQ_1_7:
+    def fdb_test_setting(settings_dict, opt_name):
+        return settings_dict['TEST'][opt_name]
+else:
+    def fdb_test_setting(settings_dict, opt_name):
+        return settings_dict['TEST_' + opt_name]
 
 if DJANGO_GTEQ_1_6:
     from django.db.backends import FieldInfo

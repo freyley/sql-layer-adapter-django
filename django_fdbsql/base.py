@@ -25,8 +25,9 @@ import sys
 import warnings
 
 from django.core.exceptions import ImproperlyConfigured
+from django.conf import settings
 from django.db import utils
-from django.db.backends import *
+from django.db.backends import BaseDatabaseFeatures, BaseDatabaseWrapper, BaseDatabaseValidation
 from django.utils.safestring import SafeUnicode, SafeString
 
 from operations import DatabaseOperations
@@ -35,7 +36,7 @@ from creation import DatabaseCreation
 from introspection import DatabaseIntrospection
 
 from helpers import (
-    DJANGO_GTEQ_1_4, DJANGO_GTEQ_1_5, DJANGO_GTEQ_1_6,
+    DJANGO_GTEQ_1_4, DJANGO_GTEQ_1_5, DJANGO_GTEQ_1_6, DJANGO_GTEQ_1_7,
     fdb_check_use_tz, fdb_force_str, fdb_reraise, timezone
 )
 
@@ -43,6 +44,9 @@ MIN_LAYER_VERSION = [1,9,3]
 
 if not DJANGO_GTEQ_1_6:
     from django.db.backends.signals import connection_created
+
+if DJANGO_GTEQ_1_7:
+    from schema import DatabaseSchemaEditor
 
 try:
     import psycopg2 as DBAPI
@@ -123,8 +127,12 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     # instead of DEFAULT, which we don't.
     #can_combine_inserts_with_and_without_auto_increment_pk = True
     can_defer_constraint_checks = True
+    can_introspect_ip_address_field = False
+    can_introspect_small_integer_field = True
     can_return_id_from_insert = True
     can_rollback_ddl = False
+    if DJANGO_GTEQ_1_7:
+        closed_cursor_error_class = utils.InterfaceError
     has_bulk_insert = True
     has_case_insensitive_like = False
     has_real_datatype = True
@@ -136,8 +144,11 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     needs_datetime_string_cast = False
     nulls_order_largest = False
     related_fields_match_type = True
+    requires_literal_defaults = True
     requires_rollback_on_dirty_transaction = True
+    requires_sqlparse_for_splitting = False
     supports_check_constraints = False
+    supports_column_check_constraints = False
     supports_combined_alters = False
     supports_foreign_keys = True
     supports_forward_references = False
@@ -149,6 +160,7 @@ class DatabaseFeatures(BaseDatabaseFeatures):
     # If there is a type that supports timezones for when USE_TZ=False
     supports_timezones = False
     supports_transactions = True
+    supports_combined_alters = False
     uses_savepoints = False
 
     def __init__(self, connection):
@@ -173,6 +185,11 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'istartswith': 'LIKE UPPER(%s)',
         'iendswith': 'LIKE UPPER(%s)',
     }
+    if DJANGO_GTEQ_1_7:
+        pattern_ops = {
+            'startswith': "LIKE %s || '%%%%'",
+            'istartswith': "LIKE UPPER(%s) || '%%%%'",
+        }
 
     def __init__(self, *args, **kwargs):
         super(DatabaseWrapper, self).__init__(*args, **kwargs)
@@ -205,10 +222,14 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         def create_cursor(self):
             return self._fdb_create_cursor()
 
+        def check_constraints(self, table_names=None):
+            # Not implemented as there is no way to COMMIT with a broken reference
+            pass
+
         def is_usable(self):
             try:
                 self.connection.cursor().execute("SELECT 1")
-            except DBAPI.DatabaseError:
+            except (DBAPI.DatabaseError, DBAPI.InterfaceError):
                 return False
             else:
                 return True
@@ -232,6 +253,10 @@ class DatabaseWrapper(BaseDatabaseWrapper):
                 fdb_reraise(utils.IntegrityError, utils.IntegrityError(*tuple(e.args)), sys.exc_info()[2])
             except DatabaseError, e:
                 fdb_reraise(utils.DatabaseError, utils.DatabaseError(*tuple(e)), sys.exc_info()[2])
+
+    if DJANGO_GTEQ_1_7:
+        def schema_editor(self, *args, **kwargs):
+            return DatabaseSchemaEditor(self, *args, **kwargs)
 
     #
     # Internal Methods
