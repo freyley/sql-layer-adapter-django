@@ -23,7 +23,7 @@ from distutils.core import setup
 
 setup(
     name            = 'django-fdbsql',
-    version         = '1.1.1',
+    version         = '1.2.0',
     author          = 'FoundationDB',
     author_email    = 'distribution@foundationdb.com',
     description     = 'FoundationDB SQL Layer database backend for Django.',
@@ -32,7 +32,9 @@ setup(
     scripts         = [],
     license         = 'MIT',
     long_description= open('README.rst').read(),
-    install_requires = [],
+    install_requires = [
+        'Django >=1.3.0, <1.8.0',
+    ],
     classifiers = [
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
