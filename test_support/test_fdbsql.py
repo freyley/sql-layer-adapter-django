@@ -2,6 +2,10 @@ DATABASES = {
     'default': {
         'ENGINE': 'django_fdbsql',
         'NAME': 'django_default',
+        'OPTIONS': {
+            'supports_sequence_reset': True,
+            'use_sequence_reset_function': True,
+        },
     },
     'other': {
         'ENGINE': 'django_fdbsql',

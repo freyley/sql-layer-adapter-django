@@ -370,6 +370,16 @@ class DatabaseOperations(BaseDatabaseOperations):
         """
         if not self.connection.features.supports_sequence_reset:
             return []
+        if self.connection._use_sequence_reset_function:
+            if use_start_value:
+                return []
+            else:
+                return [ "%s django_fdbsql_sequence_reset(CURRENT_SCHEMA, '%s', '%s');" % (
+                        style.SQL_KEYWORD('SELECT'),
+                        table_name.replace("'", "''"),
+                        column_name.replace("'", "''"),
+                    )
+                ]
         if use_start_value:
             value_str = '1'
         else:

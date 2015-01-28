@@ -185,6 +185,9 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         'istartswith': 'LIKE UPPER(%s)',
         'iendswith': 'LIKE UPPER(%s)',
     }
+    # Use alternative reset function (allows transactional increase)
+    _use_sequence_reset_function = False
+
     if DJANGO_GTEQ_1_7:
         pattern_ops = {
             'startswith': "LIKE %s || '%%%%'",
@@ -193,6 +196,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
 
     def __init__(self, *args, **kwargs):
         super(DatabaseWrapper, self).__init__(*args, **kwargs)
+        self._use_sequence_reset_function = self.settings_dict.get('OPTIONS', {}).get('use_sequence_reset_function', None)
         self.features = DatabaseFeatures(self)
         self.ops = DatabaseOperations(self)
         self.client = DatabaseClient(self)
@@ -277,6 +281,7 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         # Adapter options that don't apply to the connection
         conn_params.pop('autocommit', False)
         conn_params.pop('supports_sequence_reset', False)
+        conn_params.pop('use_sequence_reset_function', False)
         user = settings_dict.get('USER', '')
         password = fdb_force_str(settings_dict.get('PASSWORD', ''))
         host = settings_dict.get('HOST', '')
@@ -311,6 +316,10 @@ class DatabaseWrapper(BaseDatabaseWrapper):
         if ver < MIN_LAYER_VERSION:
             raise ImproperlyConfigured("SQL Layer >= %s required but connected to version: %s" % (MIN_LAYER_VERSION, ver))
 
+    def _fdb_create_sequence_reset_function(self, cursor, quoted_schema_name):
+        if self.features.supports_sequence_reset and self._use_sequence_reset_function:
+           import sequence_reset_function
+           sequence_reset_function.create_or_replace(cursor, quoted_schema_name)
 
 if not DJANGO_GTEQ_1_6:
     class CursorWrapper(object):

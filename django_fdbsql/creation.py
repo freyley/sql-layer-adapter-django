@@ -92,6 +92,8 @@ class DatabaseCreation(BaseDatabaseCreation):
             else:
                 print("Tests cancelled.")
                 sys.exit(1)
+        self.connection._fdb_create_sequence_reset_function(cursor, qn(test_database_name))
+        cursor.close()
         return test_database_name
 
     def _destroy_test_db(self, test_database_name, verbosity):
