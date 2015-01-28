@@ -1,5 +1,5 @@
 # FoundationDB SQL Layer Adapter for Django
-# Copyright (c) 2013-2014 FoundationDB, LLC
+# Copyright (c) 2013-2015 FoundationDB, LLC
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
