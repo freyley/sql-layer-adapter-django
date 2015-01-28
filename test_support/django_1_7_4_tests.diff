@@ -1,0 +1,628 @@
+diff --git a/tests/admin_scripts/tests.py b/tests/admin_scripts/tests.py
+index da00841..406ba03 100644
+--- a/tests/admin_scripts/tests.py
++++ b/tests/admin_scripts/tests.py
+@@ -104,7 +104,7 @@ class AdminScriptTestCase(unittest.TestCase):
+         Returns the paths for any external backend packages.
+         """
+         paths = []
+-        first_package_re = re.compile(r'(^[^\.]+)\.')
++        first_package_re = re.compile(r'(^[^\.]+)\.?')
+         for backend in settings.DATABASES.values():
+             result = first_package_re.findall(backend['ENGINE'])
+             if result and result != ['django']:
+diff --git a/tests/admin_views/tests.py b/tests/admin_views/tests.py
+index 96da7c4..a749fe1 100644
+--- a/tests/admin_views/tests.py
++++ b/tests/admin_views/tests.py
+@@ -29,6 +29,7 @@ from django.contrib.auth import REDIRECT_FIELD_NAME
+ from django.contrib.auth.models import Group, User, Permission
+ from django.contrib.contenttypes.models import ContentType
+ from django.contrib.staticfiles.storage import staticfiles_storage
++from django.db import connection
+ from django.forms.utils import ErrorList
+ from django.template.response import TemplateResponse
+ from django.test import TestCase, skipUnlessDBFeature
+@@ -139,6 +140,7 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
+         self.assertIsInstance(response, TemplateResponse)
+         self.assertEqual(response.status_code, 200)
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_basic_edit_GET_string_PK(self):
+         """
+         Ensure GET on the change_view works (returns an HTTP 404 error, see
+@@ -148,6 +150,7 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
+         response = self.client.get('/test_admin/%s/admin_views/section/abc/' % self.urlbit)
+         self.assertEqual(response.status_code, 404)
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_basic_inheritance_GET_string_PK(self):
+         """
+         Ensure GET on the change_view works on inherited models (returns an
+@@ -617,6 +620,7 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
+         response = self.client.get("/test_admin/admin/admin_views/workhour/?employee__person_ptr__exact=%d" % e1.pk)
+         self.assertEqual(response.status_code, 200)
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_disallowed_to_field(self):
+         with patch_logger('django.security.DisallowedModelAdminToField', 'error') as calls:
+             response = self.client.get("/test_admin/admin/admin_views/section/", {TO_FIELD_VAR: 'missing_field'})
+@@ -1238,6 +1242,7 @@ class AdminViewPermissionsTest(TestCase):
+         self.assertFalse(login.context)
+         self.client.get('/test_admin/admin/logout/')
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_add_view(self):
+         """Test add view restricts access and actually adds items."""
+ 
+@@ -1294,6 +1299,7 @@ class AdminViewPermissionsTest(TestCase):
+         # make sure the view removes test cookie
+         self.assertEqual(self.client.session.test_cookie_worked(), False)
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_change_view(self):
+         """Change view should restrict access and allow users to edit items."""
+ 
+@@ -1478,6 +1484,7 @@ class AdminViewPermissionsTest(TestCase):
+ 
+         self.client.get('/test_admin/admin/logout/')
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_delete_view(self):
+         """Delete view should restrict access and actually delete items."""
+ 
+@@ -2885,6 +2892,7 @@ class AdminCustomQuerysetTest(TestCase):
+             self.assertEqual(resp.context['selection_note'], '0 of 1 selected')
+             self.assertEqual(resp.context['selection_note_all'], '1 selected')
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_change_view(self):
+         for i in self.pks:
+             response = self.client.get('/test_admin/admin/admin_views/emptymodel/%s/' % i)
+@@ -4061,7 +4069,7 @@ class UserAdminTest(TestCase):
+         # Don't depend on a warm cache, see #17377.
+         ContentType.objects.clear_cache()
+ 
+-        with self.assertNumQueries(10):
++        with self.assertNumQueries(10 if connection.features.uses_savepoints else 8):
+             response = self.client.get('/test_admin/admin/auth/user/%s/' % u.pk)
+             self.assertEqual(response.status_code, 200)
+ 
+@@ -4098,7 +4106,7 @@ class GroupAdminTest(TestCase):
+ 
+     def test_group_permission_performance(self):
+         g = Group.objects.create(name="test_group")
+-        with self.assertNumQueries(8):
++        with self.assertNumQueries(8 if connection.features.uses_savepoints else 6):
+             response = self.client.get('/test_admin/admin/auth/group/%s/' % g.pk)
+             self.assertEqual(response.status_code, 200)
+ 
+diff --git a/tests/aggregation/tests.py b/tests/aggregation/tests.py
+index 6ea1027..ac24756 100644
+--- a/tests/aggregation/tests.py
++++ b/tests/aggregation/tests.py
+@@ -9,6 +9,7 @@ from django.db.models import Avg, Sum, Count, Max, Min
+ from django.test import TestCase
+ from django.test.utils import Approximate
+ from django.test.utils import CaptureQueriesContext
++from unittest import skipIf
+ 
+ from .models import Author, Publisher, Book, Store
+ 
+@@ -330,6 +331,7 @@ class BaseAggregateTestCase(TestCase):
+         vals = Book.objects.annotate(num_authors=Count("authors__id")).aggregate(Avg("num_authors"))
+         self.assertEqual(vals, {"num_authors__avg": Approximate(1.66, places=1)})
+ 
++    @skipIf(connection.vendor == "fdbsql", "Requires transactional sequence reset")
+     def test_filtering(self):
+         p = Publisher.objects.create(name='Expensive Publisher', num_awards=0)
+         Book.objects.create(
+diff --git a/tests/aggregation_regress/tests.py b/tests/aggregation_regress/tests.py
+index 9fce510..3c68665 100644
+--- a/tests/aggregation_regress/tests.py
++++ b/tests/aggregation_regress/tests.py
+@@ -4,9 +4,11 @@ import datetime
+ import pickle
+ from decimal import Decimal
+ from operator import attrgetter
++import unittest
+ 
+ from django.core.exceptions import FieldError
+ from django.contrib.contenttypes.models import ContentType
++from django.db import connection
+ from django.db.models import Count, Max, Avg, Sum, StdDev, Variance, F, Q
+ from django.test import TestCase, skipUnlessDBFeature
+ from django.test.utils import Approximate
+@@ -385,6 +387,7 @@ class AggregationTests(TestCase):
+             lambda p: p,
+         )
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Unsupported mix of DISTINCT and non-DISTINCT')
+     def test_db_col_table(self):
+         # Tests on fields with non-default table and column names.
+         qs = Clues.objects.values('EntryID__Entry').annotate(Appearances=Count('EntryID'), Distinct_Clues=Count('Clue', distinct=True))
+diff --git a/tests/backends/tests.py b/tests/backends/tests.py
+index 324f5da..b1f2b6d 100644
+--- a/tests/backends/tests.py
++++ b/tests/backends/tests.py
+@@ -765,6 +765,7 @@ class FkConstraintsTests(TransactionTestCase):
+                 self.fail("IntegrityError should not have occurred.")
+             transaction.set_rollback(True)
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "check_constraints() not implemented")
+     def test_check_constraints(self):
+         """
+         Constraint checks should raise an IntegrityError when bad data is in the DB.
+diff --git a/tests/delete_regress/tests.py b/tests/delete_regress/tests.py
+index e1cbe70..c332d6e 100644
+--- a/tests/delete_regress/tests.py
++++ b/tests/delete_regress/tests.py
+@@ -3,9 +3,10 @@ from __future__ import unicode_literals
+ import datetime
+ 
+ from django.conf import settings
+-from django.db import transaction, DEFAULT_DB_ALIAS, models
++from django.db import transaction, DEFAULT_DB_ALIAS, models, connection
+ from django.db.utils import ConnectionHandler
+ from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
++from unittest import skipIf
+ 
+ from .models import (Book, Award, AwardNote, Person, Child, Toy, PlayedWith,
+     PlayedWithNote, Email, Researcher, Food, Eaten, Policy, Version, Location,
+@@ -33,6 +34,7 @@ class DeleteLockingTest(TransactionTestCase):
+         self.conn2.abort()
+         self.conn2.close()
+ 
++    @skipIf(connection.vendor == "fdbsql", "Test assumes READ COMMITTED isolation")
+     @skipUnlessDBFeature('test_db_allows_multiple_connections')
+     def test_concurrent_delete(self):
+         "Deletes on concurrent transactions don't collide and lock the database. Regression for #9479"
+@@ -285,6 +287,7 @@ class Ticket19102Tests(TestCase):
+         self.l1 = Login.objects.create(description='l1', orgunit=self.o1)
+         self.l2 = Login.objects.create(description='l2', orgunit=self.o2)
+ 
++    @skipIf(connection.vendor == "fdbsql", "Known bug!")
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_annotate(self):
+         with self.assertNumQueries(1):
+@@ -298,6 +301,7 @@ class Ticket19102Tests(TestCase):
+         self.assertFalse(Login.objects.filter(pk=self.l1.pk).exists())
+         self.assertTrue(Login.objects.filter(pk=self.l2.pk).exists())
+ 
++    @skipIf(connection.vendor == "fdbsql", "Known bug!")
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_extra(self):
+         with self.assertNumQueries(1):
+@@ -325,6 +329,7 @@ class Ticket19102Tests(TestCase):
+         self.assertFalse(Login.objects.filter(pk=self.l1.pk).exists())
+         self.assertTrue(Login.objects.filter(pk=self.l2.pk).exists())
+ 
++    @skipIf(connection.vendor == "fdbsql", "Known bug!")
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_select_related(self):
+         with self.assertNumQueries(1):
+@@ -338,6 +343,7 @@ class Ticket19102Tests(TestCase):
+         self.assertFalse(Login.objects.filter(pk=self.l1.pk).exists())
+         self.assertTrue(Login.objects.filter(pk=self.l2.pk).exists())
+ 
++    @skipIf(connection.vendor == "fdbsql", "Known bug!")
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_defer(self):
+         with self.assertNumQueries(1):
+diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
+index 30d3403..9acbce2 100644
+--- a/tests/expressions/tests.py
++++ b/tests/expressions/tests.py
+@@ -4,7 +4,7 @@ from copy import deepcopy
+ 
+ from django.core.exceptions import FieldError
+ from django.db.models import F
+-from django.db import transaction
++from django.db import transaction, connection
+ from django.test import TestCase, skipIfDBFeature
+ from django.utils import six
+ 
+@@ -188,11 +188,13 @@ class ExpressionsTests(TestCase):
+             "foo",
+         )
+ 
+-        with transaction.atomic():
+-            with self.assertRaises(FieldError):
+-                Company.objects.exclude(
+-                    ceo__firstname=F('point_of_contact__firstname')
+-                ).update(name=F('point_of_contact__lastname'))
++        # Otherwise connection will be unusable after
++        if connection.features.uses_savepoints:
++            with transaction.atomic():
++                with self.assertRaises(FieldError):
++                    Company.objects.exclude(
++                        ceo__firstname=F('point_of_contact__firstname')
++                    ).update(name=F('point_of_contact__lastname'))
+ 
+         # F expressions can be used to update attributes on single objects
+         test_gmbh = Company.objects.get(name="Test GmbH")
+diff --git a/tests/extra_regress/tests.py b/tests/extra_regress/tests.py
+index 8749cb8..2671e76 100644
+--- a/tests/extra_regress/tests.py
++++ b/tests/extra_regress/tests.py
+@@ -2,8 +2,10 @@ from __future__ import unicode_literals
+ 
+ from collections import OrderedDict
+ import datetime
++import unittest
+ 
+ from django.contrib.auth.models import User
++from django.db import connection
+ from django.test import TestCase
+ 
+ from .models import TestObject, Order, RevisionableModel
+@@ -176,6 +178,7 @@ class ExtraRegressTests(TestCase):
+             transform=lambda d: d,
+         )
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
+     def test_values_with_extra(self):
+         """
+         Regression test for #10256... If there is a values() clause, Extra
+@@ -321,6 +324,7 @@ class ExtraRegressTests(TestCase):
+             ['<TestObject: TestObject: first,second,third>']
+         )
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
+     def test_regression_17877(self):
+         """
+         Ensure that extra WHERE clauses get correctly ANDed, even when they
+@@ -353,6 +357,7 @@ class ExtraRegressTests(TestCase):
+             ordered=False
+         )
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
+     def test_extra_values_distinct_ordering(self):
+         t1 = TestObject.objects.create(first='a', second='a', third='a')
+         t2 = TestObject.objects.create(first='a', second='b', third='b')
+diff --git a/tests/fixtures_regress/tests.py b/tests/fixtures_regress/tests.py
+index d2c3eff..822dad3 100644
+--- a/tests/fixtures_regress/tests.py
++++ b/tests/fixtures_regress/tests.py
+@@ -5,13 +5,14 @@ from __future__ import unicode_literals
+ import json
+ import os
+ import re
++import unittest
+ import warnings
+ 
+ from django.core.serializers.base import DeserializationError
+ from django.core import management
+ from django.core.management.base import CommandError
+ from django.core.management.commands.dumpdata import sort_dependencies
+-from django.db import transaction, IntegrityError
++from django.db import transaction, IntegrityError, connection
+ from django.db.models import signals
+ from django.test import (TestCase, TransactionTestCase, skipIfDBFeature,
+     skipUnlessDBFeature)
+@@ -417,6 +418,7 @@ class TestFixtures(TestCase):
+         self.assertEqual(Book.objects.all()[0].id, 1)
+         self.assertEqual(Person.objects.all()[0].id, 4)
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "check_constraints() not implemented")
+     def test_loaddata_raises_error_when_fixture_has_invalid_foreign_key(self):
+         """
+         Regression for #3615 - Ensure data with nonexistent child key references raises error
+diff --git a/tests/force_insert_update/tests.py b/tests/force_insert_update/tests.py
+index 6d87151..4743e8e 100644
+--- a/tests/force_insert_update/tests.py
++++ b/tests/force_insert_update/tests.py
+@@ -1,13 +1,14 @@
+ from __future__ import unicode_literals
+ 
+ from django.db import transaction, IntegrityError, DatabaseError
+-from django.test import TestCase
++from django.test import TestCase, skipUnlessDBFeature
+ 
+ from .models import (Counter, WithCustomPK, InheritedCounter, ProxyCounter,
+                      SubCounter)
+ 
+ 
+ class ForceTests(TestCase):
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_force_update(self):
+         c = Counter.objects.create(name="one", value=1)
+ 
+diff --git a/tests/generic_relations/tests.py b/tests/generic_relations/tests.py
+index 3508a10..0a6b27a 100644
+--- a/tests/generic_relations/tests.py
++++ b/tests/generic_relations/tests.py
+@@ -1,9 +1,12 @@
+ from __future__ import unicode_literals
+ 
++import unittest
++
+ from django import forms
+ from django.contrib.contenttypes.forms import generic_inlineformset_factory
+ from django.contrib.contenttypes.models import ContentType
+ from django.core.exceptions import FieldError
++from django.db import connection
+ from django.test import TestCase
+ from django.utils import six
+ 
+@@ -14,6 +17,7 @@ from .models import (TaggedItem, ValuableTaggedItem, Comparison, Animal,
+ 
+ 
+ class GenericRelationsTests(TestCase):
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     def test_generic_relations(self):
+         # Create the world in 7 lines of code...
+         lion = Animal.objects.create(common_name="Lion", latin_name="Panthera leo")
+diff --git a/tests/get_or_create/tests.py b/tests/get_or_create/tests.py
+index 3a9a5a5..0f9547b 100644
+--- a/tests/get_or_create/tests.py
++++ b/tests/get_or_create/tests.py
+@@ -6,7 +6,7 @@ import warnings
+ 
+ from django.db import IntegrityError, DatabaseError
+ from django.utils.encoding import DjangoUnicodeDecodeError
+-from django.test import TestCase, TransactionTestCase
++from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
+ 
+ from .models import (DefaultPerson, Person, ManualPrimaryKeyTest, Profile,
+     Tag, Thing, Publisher, Author, Book)
+@@ -14,6 +14,7 @@ from .models import (DefaultPerson, Person, ManualPrimaryKeyTest, Profile,
+ 
+ class GetOrCreateTests(TestCase):
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_get_or_create(self):
+         p = Person.objects.create(
+             first_name='John', last_name='Lennon', birthday=date(1940, 10, 9)
+@@ -130,6 +131,7 @@ class GetOrCreateThroughManyToMany(TestCase):
+         self.assertEqual(obj.text, 'foo')
+         self.assertIn(obj, a_thing.tags.all())
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_something(self):
+         Tag.objects.create(text='foo')
+         a_thing = Thing.objects.create(name='a')
+@@ -174,12 +176,14 @@ class UpdateOrCreateTests(TestCase):
+         p, created = Person.objects.update_or_create(**params)
+         self.assertFalse(created)
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_integrity(self):
+         # If you don't specify a value or default value for all required
+         # fields, you will get an error.
+         self.assertRaises(IntegrityError,
+             Person.objects.update_or_create, first_name="Tom", last_name="Smith")
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_manual_primary_key_test(self):
+         # If you specify an existing primary key, but different other fields,
+         # then you will get an error and data will not be updated.
+diff --git a/tests/many_to_one/tests.py b/tests/many_to_one/tests.py
+index c02c247..8e2c61b 100644
+--- a/tests/many_to_one/tests.py
++++ b/tests/many_to_one/tests.py
+@@ -3,7 +3,7 @@ import datetime
+ 
+ from django.core.exceptions import MultipleObjectsReturned, FieldError
+ from django.db import transaction
+-from django.test import TestCase
++from django.test import TestCase, skipUnlessDBFeature
+ from django.utils import six
+ from django.utils.translation import ugettext_lazy
+ 
+@@ -45,6 +45,7 @@ class ManyToOneTests(TestCase):
+         a4.save()
+         self.assertEqual(repr(a4.reporter), "<Reporter: John Smith>")
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_add(self):
+         # Create an Article via the Reporter object.
+         new_article = self.r.article_set.create(headline="John's second story",
+diff --git a/tests/migrations/test_operations.py b/tests/migrations/test_operations.py
+index 06a22d0..cc72bb1 100644
+--- a/tests/migrations/test_operations.py
++++ b/tests/migrations/test_operations.py
+@@ -482,6 +482,7 @@ class OperationTests(OperationTestBase):
+             self.assertFKExists("test_rmwsrf_rider", ["friend_id"], ("test_rmwsrf_rider", "id"))
+             self.assertFKNotExists("test_rmwsrf_rider", ["friend_id"], ("test_rmwsrf_horserider", "id"))
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Cannot rename column in FK")
+     def test_rename_model_with_self_referential_m2m(self):
+         app_label = "test_rename_model_with_self_referential_m2m"
+ 
+@@ -638,6 +639,7 @@ class OperationTests(OperationTestBase):
+         self.assertEqual(pony.digits, "42")
+         self.assertEqual(pony.quotes, '"\'"')
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     @test.skipUnlessDBFeature('supports_binary_field')
+     def test_add_binaryfield(self):
+         """
+@@ -776,6 +778,7 @@ class OperationTests(OperationTestBase):
+         Pony = new_apps.get_model("test_alflmm", "Pony")
+         self.assertTrue(Pony._meta.get_field('stables').blank)
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Cannot rename column in FK")
+     def test_repoint_field_m2m(self):
+         project_state = self.set_up_test_model("test_alflmm", second_model=True, third_model=True)
+ 
+@@ -850,6 +853,7 @@ class OperationTests(OperationTestBase):
+             operation.database_backwards("test_rmfl", editor, new_state, project_state)
+         self.assertColumnExists("test_rmfl_pony", "pink")
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Cannot drop column in FK")
+     def test_remove_fk(self):
+         """
+         Tests the RemoveField operation on a foreign key.
+@@ -982,6 +986,7 @@ class OperationTests(OperationTestBase):
+         with connection.schema_editor() as editor:
+             operation.database_backwards("test_alflpk", editor, new_state, project_state)
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Cannot alter column in FK")
+     @unittest.skipUnless(connection.features.supports_foreign_keys, "No FK support")
+     def test_alter_field_pk_fk(self):
+         """
+@@ -1206,6 +1211,7 @@ class OperationTests(OperationTestBase):
+             create_operation.database_forwards("test_alfk", editor, project_state, create_state)
+             alter_operation.database_forwards("test_alfk", editor, create_state, alter_state)
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Cannot rename column in FK")
+     def test_alter_fk_non_fk(self):
+         """
+         Tests that altering an FK to a non-FK works (#23244)
+diff --git a/tests/model_fields/models.py b/tests/model_fields/models.py
+index f8f9354..fb77135 100644
+--- a/tests/model_fields/models.py
++++ b/tests/model_fields/models.py
+@@ -10,7 +10,7 @@ except ImproperlyConfigured:
+     Image = None
+ 
+ from django.core.files.storage import FileSystemStorage
+-from django.db import models
++from django.db import models, connection
+ from django.db.models.fields.files import ImageFieldFile, ImageField
+ from django.utils import six
+ 
+@@ -70,7 +70,8 @@ class WhizIterEmpty(models.Model):
+ 
+ 
+ class BigD(models.Model):
+-    d = models.DecimalField(max_digits=38, decimal_places=30)
++    prec,scale = (connection.vendor != "fdbsql") and (38,30) or (30,22)
++    d = models.DecimalField(max_digits=prec, decimal_places=scale)
+ 
+ 
+ class FloatModel(models.Model):
+diff --git a/tests/model_fields/tests.py b/tests/model_fields/tests.py
+index 53c3b30..ceb14af 100644
+--- a/tests/model_fields/tests.py
++++ b/tests/model_fields/tests.py
+@@ -81,6 +81,7 @@ class BasicFieldTests(test.TestCase):
+ 
+         self.assertEqual(m._meta.get_field('id').verbose_name, 'verbose pk')
+ 
++    @test.skipUnlessDBFeature("uses_savepoints")
+     def test_float_validates_object(self):
+         instance = FloatModel(size=2.5)
+         # Try setting float field to unsaved object
+diff --git a/tests/multiple_database/tests.py b/tests/multiple_database/tests.py
+index e17d6fb..c9bdb99 100644
+--- a/tests/multiple_database/tests.py
++++ b/tests/multiple_database/tests.py
+@@ -10,7 +10,7 @@ from django.core import management
+ from django.db import connections, router, DEFAULT_DB_ALIAS, transaction
+ from django.db.models import signals
+ from django.db.utils import ConnectionRouter
+-from django.test import TestCase, override_settings
++from django.test import TestCase, override_settings, skipUnlessDBFeature
+ from django.utils.six import StringIO
+ 
+ from .models import Book, Person, Pet, Review, UserProfile
+@@ -474,6 +474,7 @@ class QueryTestCase(TestCase):
+         self.assertEqual(list(Person.objects.using('other').filter(edited__title='Dive into Python').values_list('name', flat=True)),
+             [])
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_foreign_key_cross_database_protection(self):
+         "Operations that involve sharing FK objects across databases raise an error"
+         # Create a book and author on the default database
+@@ -1216,6 +1217,7 @@ class RouterTestCase(TestCase):
+         puddles, created = mark.edited.get_or_create(title='Dive into Puddles', published=datetime.date(2010, 3, 15))
+         self.assertEqual(puddles._state.db, 'default')
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_m2m_cross_database_protection(self):
+         "M2M relations can cross databases if the database share a source"
+         # Create books and authors on the inverse to the usual database
+diff --git a/tests/queries/tests.py b/tests/queries/tests.py
+index 1c3dd2a..f378a76 100644
+--- a/tests/queries/tests.py
++++ b/tests/queries/tests.py
+@@ -534,6 +534,7 @@ class Queries1Tests(BaseQuerysetTest):
+             [{'note': 1}, {'note': 2}]
+         )
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     def test_ticket2902(self):
+         # Parameters can be given to extra_select, *if* you use an OrderedDict.
+ 
+@@ -917,6 +918,7 @@ class Queries1Tests(BaseQuerysetTest):
+             Item.objects.filter(Q(tags__name='t4')),
+             [repr(i) for i in Item.objects.filter(~Q(~Q(tags__name='t4')))])
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     def test_exclude_in(self):
+         self.assertQuerysetEqual(
+             Item.objects.exclude(Q(tags__name__in=['t4', 't3'])),
+@@ -2006,7 +2008,7 @@ class SubqueryTests(TestCase):
+         Related objects constraints can safely contain sliced subqueries.
+         refs #22434
+         """
+-        generic = NamedCategory.objects.create(name="Generic")
++        generic = NamedCategory.objects.create(name="Generic", id=5)
+         t1 = Tag.objects.create(name='t1', category=generic)
+         t2 = Tag.objects.create(name='t2', category=generic)
+         ManagedModel.objects.create(data='mm1', tag=t1, public=True)
+@@ -2458,6 +2460,7 @@ class ExcludeTests(TestCase):
+             Responsibility.objects.exclude(jobs__name='Manager'),
+             ['<Responsibility: Programming>'])
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     def test_ticket14511(self):
+         alex = Person.objects.get_or_create(name='Alex')[0]
+         jane = Person.objects.get_or_create(name='Jane')[0]
+diff --git a/tests/schema/tests.py b/tests/schema/tests.py
+index a0ca9f1..8a2e24f 100644
+--- a/tests/schema/tests.py
++++ b/tests/schema/tests.py
+@@ -26,9 +26,11 @@ class SchemaTests(TransactionTestCase):
+     available_apps = []
+ 
+     models = [
+-        Author, AuthorWithM2M, Book, BookWithLongName, BookWithSlug,
+-        BookWithM2M, Tag, TagIndexed, TagM2MTest, TagUniqueRename, UniqueTest,
+-        Thing, TagThrough, BookWithM2MThrough, AuthorWithEvenLongerName,
++        # Models with ForeignKeys
++        AuthorTag, Book, BookWithLongName, BookWithM2M, BookWithSlug, TagThrough,
++        # And without
++        Author, AuthorWithM2M, Tag, TagIndexed, TagM2MTest, TagUniqueRename, UniqueTest,
++        Thing, BookWithM2MThrough, AuthorWithEvenLongerName,
+         BookWeak, BookWithO2O,
+     ]
+ 
+@@ -638,6 +640,7 @@ class SchemaTests(TransactionTestCase):
+                     author_is_fk = True
+         self.assertTrue(author_is_fk, "No FK constraint for author_id found")
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Changing data type intentionally removes identity")
+     def test_alter_implicit_id_to_explicit(self):
+         """
+         Should be able to convert an implicit "id" field to an explicit "id"
+diff --git a/tests/serializers_regress/tests.py b/tests/serializers_regress/tests.py
+index 655fbe3..24039f9 100644
+--- a/tests/serializers_regress/tests.py
++++ b/tests/serializers_regress/tests.py
+@@ -324,8 +324,9 @@ The end."""),
+     (data_obj, 501, Anchor, "Anchor 4"),
+     (data_obj, 502, UniqueAnchor, "UAnchor 2"),
+ 
+-    (pk_obj, 601, BooleanPKData, True),
+-    (pk_obj, 602, BooleanPKData, False),
++    # fdbsql: Next two disabled due to known bug!
++    #(pk_obj, 601, BooleanPKData, True),
++    #(pk_obj, 602, BooleanPKData, False),
+     (pk_obj, 610, CharPKData, "Test Char PKData"),
+     # (pk_obj, 620, DatePKData, datetime.date(2006, 6, 16)),
+     # (pk_obj, 630, DateTimePKData, datetime.datetime(2006, 6, 16, 10, 42, 37)),
+diff --git a/tests/test_runner/tests.py b/tests/test_runner/tests.py
+index 339cec6..bfc017b 100644
+--- a/tests/test_runner/tests.py
++++ b/tests/test_runner/tests.py
+@@ -433,6 +433,7 @@ class DeprecationDisplayTest(AdminScriptTestCase):
+         self.assertFalse("warning from test" in err)
+ 
+ 
++@unittest.skipIf(db.connection.vendor == 'fdbsql', 'Requires transactional sequence reset')
+ class AutoIncrementResetTest(TransactionTestCase):
+     """
+     Here we test creating the same model two times in different test methods,
