@@ -254,22 +254,6 @@ index c7e746e..1fd906d 100644
      def test_double_exclude(self):
          self.assertQuerysetEqual(
              Item.objects.filter(Q(tags__name='t4')),
-diff --git a/tests/regressiontests/serializers_regress/tests.py b/tests/regressiontests/serializers_regress/tests.py
-index 80e0228..31c3ac6 100644
---- a/tests/regressiontests/serializers_regress/tests.py
-+++ b/tests/regressiontests/serializers_regress/tests.py
-@@ -294,8 +294,9 @@ The end."""),
-     (data_obj, 501, Anchor, "Anchor 4"),
-     (data_obj, 502, UniqueAnchor, "UAnchor 2"),
- 
--    (pk_obj, 601, BooleanPKData, True),
--    (pk_obj, 602, BooleanPKData, False),
-+    # fdbsql: Next two disabled due to known bug!
-+    #(pk_obj, 601, BooleanPKData, True),
-+    #(pk_obj, 602, BooleanPKData, False),
-     (pk_obj, 610, CharPKData, "Test Char PKData"),
- #     (pk_obj, 620, DatePKData, datetime.date(2006,6,16)),
- #     (pk_obj, 630, DateTimePKData, datetime.datetime(2006,6,16,10,42,37)),
 diff --git a/tests/regressiontests/test_runner/tests.py b/tests/regressiontests/test_runner/tests.py
 index 3418e2a..95db088 100644
 --- a/tests/regressiontests/test_runner/tests.py

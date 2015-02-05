@@ -200,21 +200,10 @@ index cd6b7e2..9790d46 100644
          # Make sure exclude() with multiple conditions continues to work.
          self.assertQuerysetEqual(
 diff --git a/tests/regressiontests/serializers_regress/tests.py b/tests/regressiontests/serializers_regress/tests.py
-index a1b85d6..54a25b0 100644
+index a1b85d6..0813954 100644
 --- a/tests/regressiontests/serializers_regress/tests.py
 +++ b/tests/regressiontests/serializers_regress/tests.py
-@@ -279,17 +279,19 @@ The end."""),
-     (data_obj, 501, Anchor, "Anchor 4"),
-     (data_obj, 502, UniqueAnchor, "UAnchor 2"),
- 
--    (pk_obj, 601, BooleanPKData, True),
--    (pk_obj, 602, BooleanPKData, False),
-+    # fdbsql: BooleanPKData disabled to due known bug!
-+    #(pk_obj, 601, BooleanPKData, True),
-+    #(pk_obj, 602, BooleanPKData, False),
-     (pk_obj, 610, CharPKData, "Test Char PKData"),
- #     (pk_obj, 620, DatePKData, datetime.date(2006,6,16)),
- #     (pk_obj, 630, DateTimePKData, datetime.datetime(2006,6,16,10,42,37)),
+@@ -287,9 +287,10 @@ The end."""),
      (pk_obj, 640, EmailPKData, "hovercraft@example.com"),
  #     (pk_obj, 650, FilePKData, 'file:///foo/bar/whiz.txt'),
      (pk_obj, 660, FilePathPKData, "/foo/bar/whiz.txt"),

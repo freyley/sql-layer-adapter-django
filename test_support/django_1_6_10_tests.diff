@@ -419,22 +419,6 @@ index 833f65f..ca4881f 100644
      def test_ticket2902(self):
          # Parameters can be given to extra_select, *if* you use a SortedDict.
  
-diff --git a/tests/serializers_regress/tests.py b/tests/serializers_regress/tests.py
-index f5aced2..b351849 100644
---- a/tests/serializers_regress/tests.py
-+++ b/tests/serializers_regress/tests.py
-@@ -304,8 +304,9 @@ The end."""),
-     (data_obj, 501, Anchor, "Anchor 4"),
-     (data_obj, 502, UniqueAnchor, "UAnchor 2"),
- 
--    (pk_obj, 601, BooleanPKData, True),
--    (pk_obj, 602, BooleanPKData, False),
-+    # fdbsql: Next two disabled due to known bug!
-+    #(pk_obj, 601, BooleanPKData, True),
-+    #(pk_obj, 602, BooleanPKData, False),
-     (pk_obj, 610, CharPKData, "Test Char PKData"),
- #     (pk_obj, 620, DatePKData, datetime.date(2006,6,16)),
- #     (pk_obj, 630, DateTimePKData, datetime.datetime(2006,6,16,10,42,37)),
 diff --git a/tests/test_runner/tests.py b/tests/test_runner/tests.py
 index a34b049..00afdd6 100644
 --- a/tests/test_runner/tests.py

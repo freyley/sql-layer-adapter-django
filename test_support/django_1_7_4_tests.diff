@@ -598,22 +598,6 @@ index a0ca9f1..8a2e24f 100644
      def test_alter_implicit_id_to_explicit(self):
          """
          Should be able to convert an implicit "id" field to an explicit "id"
-diff --git a/tests/serializers_regress/tests.py b/tests/serializers_regress/tests.py
-index 655fbe3..24039f9 100644
---- a/tests/serializers_regress/tests.py
-+++ b/tests/serializers_regress/tests.py
-@@ -324,8 +324,9 @@ The end."""),
-     (data_obj, 501, Anchor, "Anchor 4"),
-     (data_obj, 502, UniqueAnchor, "UAnchor 2"),
- 
--    (pk_obj, 601, BooleanPKData, True),
--    (pk_obj, 602, BooleanPKData, False),
-+    # fdbsql: Next two disabled due to known bug!
-+    #(pk_obj, 601, BooleanPKData, True),
-+    #(pk_obj, 602, BooleanPKData, False),
-     (pk_obj, 610, CharPKData, "Test Char PKData"),
-     # (pk_obj, 620, DatePKData, datetime.date(2006, 6, 16)),
-     # (pk_obj, 630, DateTimePKData, datetime.datetime(2006, 6, 16, 10, 42, 37)),
 diff --git a/tests/test_runner/tests.py b/tests/test_runner/tests.py
 index 339cec6..bfc017b 100644
 --- a/tests/test_runner/tests.py
