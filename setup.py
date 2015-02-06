@@ -23,7 +23,7 @@ from distutils.core import setup
 
 setup(
     name            = 'django-fdbsql',
-    version         = '1.2.0',
+    version         = '1.2.1a1',
     author          = 'FoundationDB',
     author_email    = 'distribution@foundationdb.com',
     description     = 'FoundationDB SQL Layer database backend for Django.',
