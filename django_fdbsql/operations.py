@@ -1,5 +1,5 @@
 # FoundationDB SQL Layer Adapter for Django
-# Copyright (c) 2013-2014 FoundationDB, LLC
+# Copyright (c) 2013-2015 FoundationDB, LLC
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -325,6 +325,8 @@ class DatabaseOperations(BaseDatabaseOperations):
             return 'BITAND(%s)' % ','.join(sub_expressions)
         if connector == '|':
             return 'BITOR(%s)' % ','.join(sub_expressions)
+        if connector == '^':
+            return 'POW(%s)' % ','.join(sub_expressions)
         conn = ' %s ' % connector
         return conn.join(sub_expressions)
     
@@ -368,6 +370,16 @@ class DatabaseOperations(BaseDatabaseOperations):
         """
         if not self.connection.features.supports_sequence_reset:
             return []
+        if self.connection._use_sequence_reset_function:
+            if use_start_value:
+                return []
+            else:
+                return [ "%s django_fdbsql_sequence_reset(CURRENT_SCHEMA, '%s', '%s');" % (
+                        style.SQL_KEYWORD('SELECT'),
+                        table_name.replace("'", "''"),
+                        column_name.replace("'", "''"),
+                    )
+                ]
         if use_start_value:
             value_str = '1'
         else:

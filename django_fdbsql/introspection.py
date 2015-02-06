@@ -1,5 +1,5 @@
 # FoundationDB SQL Layer Adapter for Django
-# Copyright (c) 2013-2014 FoundationDB, LLC
+# Copyright (c) 2013-2015 FoundationDB, LLC
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,7 @@
 
 from django.db.backends import BaseDatabaseIntrospection
 
-from helpers import DJANGO_GTEQ_1_4, fdb_field_info, fdb_force_text
+from helpers import DJANGO_GTEQ_1_4, DJANGO_GTEQ_1_7, fdb_field_info, fdb_force_text
 
 class DatabaseIntrospection(BaseDatabaseIntrospection):
     data_types_reverse = {
@@ -133,6 +133,125 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
                 info[UK] |= is_unique
                 saw[i_name] = c_name
         return indexes
+
+    if DJANGO_GTEQ_1_7:
+        def get_constraints(self, cursor, table_name):
+            """
+            Retrieves any constraints or keys (unique, pk, fk, check, index)
+            across one or more columns.
+
+            Returns a dict mapping constraint names to their attributes,
+            where attributes is a dict with keys:
+             * columns: List of columns this covers
+             * primary_key: True if primary key, False otherwise
+             * unique: True if this is a unique constraint, False otherwise
+             * foreign_key: (table, column) of target, or None
+             * check: True if check constraint, False otherwise
+             * index: True if index, False otherwise.
+            """
+            constraints = {}
+            # Get PRIMARY and UNIQUE.
+            cursor.execute(
+                """
+                SELECT tc.constraint_name,
+                       tc.constraint_type = 'PRIMARY KEY',
+                       kcu.column_name
+                FROM information_schema.table_constraints tc
+                INNER JOIN information_schema.key_column_usage kcu
+                    USING (constraint_schema, constraint_name)
+                WHERE tc.table_schema = CURRENT_SCHEMA
+                  AND tc.table_name = %s
+                  AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+                ORDER BY tc.constraint_name, kcu.ordinal_position
+                """,
+                [table_name]
+            )
+            for con_name, is_primary, col_name in cursor.fetchall():
+                con = constraints.get(con_name, None)
+                if not con:
+                    con = {
+                        'columns': [],
+                        'primary_key': is_primary,
+                        'unique': True,
+                        'foreign_key': None,
+                        'check': False,
+                        'index': False,
+                    }
+                    constraints[con_name] = con
+                con['columns'].append(col_name)
+            # Then FOREIGN KEY.
+            # NB: Referenced table schema left out as Django doesn't want it.
+            cursor.execute(
+                """
+                SELECT rc.constraint_name,
+                       kcu1.column_name,
+                       kcu2.table_name,
+                       kcu2.column_name
+                FROM information_schema.referential_constraints rc
+                INNER JOIN information_schema.key_column_usage kcu1
+                    USING (constraint_schema, constraint_name)
+                INNER JOIN information_schema.key_column_usage kcu2
+                    ON rc.unique_constraint_schema = kcu2.constraint_schema
+                   AND rc.unique_constraint_name = kcu2.constraint_name
+                   AND kcu1.position_in_unique_constraint = kcu2.ordinal_position
+                WHERE rc.constraint_schema = CURRENT_SCHEMA
+                  AND kcu1.table_schema = CURRENT_SCHEMA
+                  AND kcu1.table_name = %s
+                ORDER BY rc.constraint_name
+                """,
+                [table_name]
+            )
+            for con_name, col_name, ref_table, ref_col in cursor.fetchall():
+                # Only allowed to return 1 ref column
+                assert con_name not in constraints
+                constraints[con_name] = {
+                    'columns': [col_name],
+                    'primary_key': False,
+                    'unique': True,
+                    'foreign_key': (ref_table, ref_col),
+                    'check': False,
+                    'index': False,
+                }
+            # Then INDEXES.
+            # NB: Needs to leave out ones backing PRIMARY or UNIQUE as Django only wants
+            #     them once *even if* the constraint name does not match index name.
+            # NB: Also exclude group and spatial indexes as not-managed by Django.
+            cursor.execute(
+                """
+                SELECT i.index_name,
+                       ic.column_name
+                FROM information_schema.indexes i
+                INNER JOIN information_schema.index_columns ic
+                   ON i.table_schema = ic.index_table_schema
+                  AND i.table_name = ic.index_table_name
+                  AND i.index_name = ic.index_name
+                WHERE i.table_schema = CURRENT_SCHEMA
+                  AND i.table_name = %s
+                  AND i.index_type = 'INDEX'
+                  AND i.join_type IS NULL
+                  AND i.index_method IS NULL
+                ORDER BY ic.index_name, ic.ordinal_position
+                """,
+                [table_name]
+            )
+            for con_name, col_name in cursor.fetchall():
+                con = constraints.get(con_name, None)
+                # This needs to leave out indexes backing PRIMARY or UNIQUE
+                if not con:
+                    con = {
+                        'columns': [],
+                        'primary_key': False,
+                        'unique': False,
+                        'foreign_key': None,
+                        'check': False,
+                        'index': True,
+                    }
+                    constraints[con_name] = con
+                elif not con['index']:
+                    # Skip over any not added in this pass
+                    continue
+                con['columns'].append(col_name)
+            return constraints
 
     #
     # Internal Methods

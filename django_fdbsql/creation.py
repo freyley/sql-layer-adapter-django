@@ -1,5 +1,5 @@
 # FoundationDB SQL Layer Adapter for Django
-# Copyright (c) 2013-2014 FoundationDB, LLC
+# Copyright (c) 2013-2015 FoundationDB, LLC
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,7 +24,7 @@ import time
 from django.db.backends.creation import BaseDatabaseCreation
 from django.db.backends.util import truncate_name
 
-from helpers import fdb_get_input
+from helpers import fdb_get_input, fdb_test_setting
 
 class DatabaseCreation(BaseDatabaseCreation):
     data_types = {
@@ -56,10 +56,12 @@ class DatabaseCreation(BaseDatabaseCreation):
 
     def sql_table_creation_suffix(self):
         suffix = []
-        if self.connection.settings_dict['TEST_CHARSET']:
-            suffix.append('CHARACTER SET %s' % self.connection.settings_dict['TEST_CHARSET'])
-        if self.connection.settings_dict['TEST_COLLATION']:
-            suffix.append('COLLATE %s' % self.connection.settings_dict['TEST_COLLATION'])
+        charset = fdb_test_setting(self.connection.settings_dict, 'CHARSET')
+        if charset:
+            suffix.append('CHARACTER SET %s' % charset)
+        collation = fdb_test_setting(self.connection.settings_dict, 'COLLATION')
+        if collation:
+            suffix.append('COLLATE %s' % collation)
         return ' '.join(suffix)
 
     def _create_test_db(self, verbosity, autoclobber):
@@ -90,6 +92,8 @@ class DatabaseCreation(BaseDatabaseCreation):
             else:
                 print("Tests cancelled.")
                 sys.exit(1)
+        self.connection._fdb_create_sequence_reset_function(cursor, qn(test_database_name))
+        cursor.close()
         return test_database_name
 
     def _destroy_test_db(self, test_database_name, verbosity):

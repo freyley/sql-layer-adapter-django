@@ -1,15 +1,15 @@
 diff --git a/tests/modeltests/get_or_create/tests.py b/tests/modeltests/get_or_create/tests.py
-index 3323c88..5d7f5f0 100644
+index f98f0e6..78ad5ae 100644
 --- a/tests/modeltests/get_or_create/tests.py
 +++ b/tests/modeltests/get_or_create/tests.py
-@@ -1,12 +1,13 @@
- from datetime import date
+@@ -4,12 +4,13 @@ from datetime import date
+ import traceback
  
  from django.db import IntegrityError
 -from django.test import TestCase
 +from django.test import TestCase, skipUnlessDBFeature
  
- from models import Person, ManualPrimaryKeyTest
+ from .models import Person, ManualPrimaryKeyTest
  
  
  class GetOrCreateTests(TestCase):
@@ -17,31 +17,11 @@ index 3323c88..5d7f5f0 100644
      def test_get_or_create(self):
          p = Person.objects.create(
              first_name='John', last_name='Lennon', birthday=date(1940, 10, 9)
-diff --git a/tests/modeltests/validation/tests.py b/tests/modeltests/validation/tests.py
-index eaf130b..bafd3d6 100644
---- a/tests/modeltests/validation/tests.py
-+++ b/tests/modeltests/validation/tests.py
-@@ -1,6 +1,7 @@
- from django import forms
- from django.test import TestCase
- from django.core.exceptions import NON_FIELD_ERRORS
-+from django.utils.unittest import skip
- from modeltests.validation import ValidationTestCase
- from modeltests.validation.models import Author, Article, ModelToValidate
- 
-@@ -66,6 +67,7 @@ class BaseModelValidationTests(ValidationTestCase):
-         mtv = ModelToValidate(number=10, name='Some Name', url_verify='http://qa-dev.w3.org/link-testsuite/http.php?code=301') #example.com is a redirect to iana.org now
-         self.assertEqual(None, mtv.full_clean()) # This will fail if there's no Internet connection
- 
-+    @skip("Testing deprecated functionality requiring internet")
-     def test_correct_https_url_but_nonexisting(self):
-         mtv = ModelToValidate(number=10, name='Some Name', url_verify='https://www.example.com/')
-         self.assertFieldFailsValidationWithMessage(mtv.full_clean, 'url_verify', [u'This URL appears to be a broken link.'])
 diff --git a/tests/regressiontests/admin_scripts/tests.py b/tests/regressiontests/admin_scripts/tests.py
-index ed4bd35..5bda87c 100644
+index 669c6e8..37af688 100644
 --- a/tests/regressiontests/admin_scripts/tests.py
 +++ b/tests/regressiontests/admin_scripts/tests.py
-@@ -71,7 +71,7 @@ class AdminScriptTestCase(unittest.TestCase):
+@@ -79,7 +79,7 @@ class AdminScriptTestCase(unittest.TestCase):
          Returns the paths for any external backend packages.
          """
          paths = []
@@ -51,92 +31,113 @@ index ed4bd35..5bda87c 100644
              result = first_package_re.findall(backend['ENGINE'])
              if result and result != 'django':
 diff --git a/tests/regressiontests/aggregation_regress/tests.py b/tests/regressiontests/aggregation_regress/tests.py
-index 0bb6899..5316989 100644
+index 11ad6ac..b86bd16 100644
 --- a/tests/regressiontests/aggregation_regress/tests.py
 +++ b/tests/regressiontests/aggregation_regress/tests.py
-@@ -4,8 +4,10 @@ from decimal import Decimal
+@@ -6,8 +6,10 @@ from decimal import Decimal
  from operator import attrgetter
  
  from django.core.exceptions import FieldError
 +from django.db import connection
  from django.db.models import Count, Max, Avg, Sum, StdDev, Variance, F, Q
  from django.test import TestCase, Approximate, skipUnlessDBFeature
-+from django.utils.unittest import skipIf
++from django.utils import unittest
  
- from models import Author, Book, Publisher, Clues, Entries, HardbackBook
+ from .models import Author, Book, Publisher, Clues, Entries, HardbackBook
  
-@@ -370,6 +372,7 @@ class AggregationTests(TestCase):
+@@ -374,6 +376,7 @@ class AggregationTests(TestCase):
              lambda p: p,
          )
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Unsupported mix of DISTINCT and non-DISTINCT')
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Unsupported mix of DISTINCT and non-DISTINCT')
      def test_db_col_table(self):
          # Tests on fields with non-default table and column names.
          qs = Clues.objects.values('EntryID__Entry').annotate(Appearances=Count('EntryID'), Distinct_Clues=Count('Clue', distinct=True))
+diff --git a/tests/regressiontests/backends/tests.py b/tests/regressiontests/backends/tests.py
+index 193d01b..8627363 100644
+--- a/tests/regressiontests/backends/tests.py
++++ b/tests/regressiontests/backends/tests.py
+@@ -466,6 +466,7 @@ class FkConstraintsTests(TransactionTestCase):
+             finally:
+                 transaction.rollback()
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'check_constraints() not implemented')
+     def test_check_constraints(self):
+         """
+         Constraint checks should raise an IntegrityError when bad data is in the DB.
 diff --git a/tests/regressiontests/delete_regress/tests.py b/tests/regressiontests/delete_regress/tests.py
-index 2027780..9d5197a 100644
+index 32feae2..bc13884 100644
 --- a/tests/regressiontests/delete_regress/tests.py
 +++ b/tests/regressiontests/delete_regress/tests.py
-@@ -3,6 +3,7 @@ import datetime
- from django.conf import settings
- from django.db import backend, connection, transaction, DEFAULT_DB_ALIAS
- from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
-+from django.utils.unittest import skipIf
+@@ -3,8 +3,9 @@ from __future__ import absolute_import
+ import datetime
  
- from models import (Book, Award, AwardNote, Person, Child, Toy, PlayedWith,
-     PlayedWithNote, Contact, Email, Researcher, Food, Eaten,
-@@ -35,6 +36,7 @@ class DeleteLockingTest(TransactionTestCase):
+ from django.conf import settings
+-from django.db import backend, transaction, DEFAULT_DB_ALIAS
++from django.db import backend, transaction, DEFAULT_DB_ALIAS, connection
+ from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
++from django.utils import unittest
+ 
+ from .models import (Book, Award, AwardNote, Person, Child, Toy, PlayedWith,
+     PlayedWithNote, Email, Researcher, Food, Eaten, Policy, Version, Location,
+@@ -37,6 +38,7 @@ class DeleteLockingTest(TransactionTestCase):
          transaction.leave_transaction_management()
          self.conn2.close()
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Test assumes READ COMMITTED isolation')
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Test assumes READ COMMITTED isolation')
      @skipUnlessDBFeature('test_db_allows_multiple_connections')
      def test_concurrent_delete(self):
          "Deletes on concurrent transactions don't collide and lock the database. Regression for #9479"
 diff --git a/tests/regressiontests/extra_regress/tests.py b/tests/regressiontests/extra_regress/tests.py
-index ef7cbb8..96eda68 100644
+index 67efb42..f455351 100644
 --- a/tests/regressiontests/extra_regress/tests.py
 +++ b/tests/regressiontests/extra_regress/tests.py
-@@ -1,6 +1,8 @@
- from django.test import TestCase
- 
-+from django.db import connection
- from django.utils.datastructures import SortedDict
-+from django.utils.unittest import skipIf
+@@ -3,7 +3,9 @@ from __future__ import absolute_import
+ import datetime
  
  from django.contrib.auth.models import User
- from regressiontests.extra_regress.models import TestObject, Order, \
-@@ -167,6 +169,7 @@ class ExtraRegressTests(TestCase):
++from django.db import connection
+ from django.test import TestCase
++from django.utils import unittest
+ from django.utils.datastructures import SortedDict
+ 
+ from .models import TestObject, Order, RevisionableModel
+@@ -168,6 +170,7 @@ class ExtraRegressTests(TestCase):
              ['datetime.datetime(2008, 9, 1, 0, 0)']
          )
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
      def test_values_with_extra(self):
          """
          Regression test for #10256... If there is a values() clause, Extra
-diff --git a/tests/regressiontests/forms/tests/fields.py b/tests/regressiontests/forms/tests/fields.py
-index e963cf2..7b7031d 100644
---- a/tests/regressiontests/forms/tests/fields.py
-+++ b/tests/regressiontests/forms/tests/fields.py
-@@ -34,7 +34,7 @@ from decimal import Decimal
- from django.core.files.uploadedfile import SimpleUploadedFile
- from django.forms import *
- from django.forms.widgets import RadioFieldRenderer
--from django.utils.unittest import TestCase
-+from django.utils.unittest import TestCase, skip
+diff --git a/tests/regressiontests/fixtures_regress/tests.py b/tests/regressiontests/fixtures_regress/tests.py
+index ed8b404..6972eb4 100644
+--- a/tests/regressiontests/fixtures_regress/tests.py
++++ b/tests/regressiontests/fixtures_regress/tests.py
+@@ -12,11 +12,12 @@ except ImportError:
+ from django.core import management
+ from django.core.management.base import CommandError
+ from django.core.management.commands.dumpdata import sort_dependencies
+-from django.db import transaction
++from django.db import transaction, connection
+ from django.db.models import signals
+ from django.test import (TestCase, TransactionTestCase, skipIfDBFeature,
+     skipUnlessDBFeature)
+ from django.test.utils import override_settings
++from django.utils.unittest import skipIf
  
+ from .models import (Animal, Stuff, Absolute, Parent, Child, Article, Widget,
+     Store, Person, Book, NKChild, RefToNKChild, Circle1, Circle2, Circle3,
+@@ -375,6 +376,7 @@ class TestFixtures(TestCase):
+         self.assertEqual(Book.objects.all()[0].id, 1)
+         self.assertEqual(Person.objects.all()[0].id, 4)
  
- def fix_os_paths(x):
-@@ -625,6 +625,7 @@ class FieldsTests(TestCase):
-         except ValidationError, e:
-             self.assertEqual("[u'This URL appears to be a broken link.']", str(e))
- 
-+    @skip("Testing deprecated functionality requiring internet")
-     def test_urlfield_10(self):
-         # UTF-8 in the domain.
-         f = URLField(verify_exists=True)
++    @skipIf(connection.vendor == 'fdbsql', 'check_constraints() not implemented')
+     def test_loaddata_raises_error_when_fixture_has_invalid_foreign_key(self):
+         """
+         Regression for #3615 - Ensure data with nonexistent child key references raises error
 diff --git a/tests/regressiontests/model_fields/models.py b/tests/regressiontests/model_fields/models.py
-index 1dc1649..6366a80 100644
+index d9c123f..78d135a 100644
 --- a/tests/regressiontests/model_fields/models.py
 +++ b/tests/regressiontests/model_fields/models.py
 @@ -14,7 +14,7 @@ except ImportError:
@@ -159,10 +160,10 @@ index 1dc1649..6366a80 100644
  class BigS(models.Model):
      s = models.SlugField(max_length=255)
 diff --git a/tests/regressiontests/multiple_database/tests.py b/tests/regressiontests/multiple_database/tests.py
-index 110ee1e..e73a3b9 100644
+index e2f433e..36349c4 100644
 --- a/tests/regressiontests/multiple_database/tests.py
 +++ b/tests/regressiontests/multiple_database/tests.py
-@@ -1342,14 +1342,14 @@ class RouterTestCase(TestCase):
+@@ -1364,14 +1364,14 @@ class RouterTestCase(TestCase):
          # If you create an object through a M2M relation, it will be
          # written to the write database, even if the original object
          # was on the read database
@@ -180,10 +181,10 @@ index 110ee1e..e73a3b9 100644
  
      def test_o2o_cross_database_protection(self):
 diff --git a/tests/regressiontests/queries/tests.py b/tests/regressiontests/queries/tests.py
-index cd6b7e2..9790d46 100644
+index ed71be8..dd89df7 100644
 --- a/tests/regressiontests/queries/tests.py
 +++ b/tests/regressiontests/queries/tests.py
-@@ -494,6 +494,7 @@ class Queries1Tests(BaseQuerysetTest):
+@@ -488,6 +488,7 @@ class Queries1Tests(BaseQuerysetTest):
              [{'note': 1}, {'note': 2}]
          )
  
@@ -191,7 +192,7 @@ index cd6b7e2..9790d46 100644
      def test_ticket2902(self):
          # Parameters can be given to extra_select, *if* you use a SortedDict.
  
-@@ -589,6 +590,7 @@ class Queries1Tests(BaseQuerysetTest):
+@@ -583,6 +584,7 @@ class Queries1Tests(BaseQuerysetTest):
              [{'note__note': u'n2'}, {'note__note': u'n3'}, {'note__note': u'n3'}, {'note__note': u'n3'}]
          )
  
@@ -199,21 +200,3 @@ index cd6b7e2..9790d46 100644
      def test_ticket7096(self):
          # Make sure exclude() with multiple conditions continues to work.
          self.assertQuerysetEqual(
-diff --git a/tests/regressiontests/serializers_regress/tests.py b/tests/regressiontests/serializers_regress/tests.py
-index a1b85d6..0813954 100644
---- a/tests/regressiontests/serializers_regress/tests.py
-+++ b/tests/regressiontests/serializers_regress/tests.py
-@@ -287,9 +287,10 @@ The end."""),
-     (pk_obj, 640, EmailPKData, "hovercraft@example.com"),
- #     (pk_obj, 650, FilePKData, 'file:///foo/bar/whiz.txt'),
-     (pk_obj, 660, FilePathPKData, "/foo/bar/whiz.txt"),
--    (pk_obj, 670, DecimalPKData, decimal.Decimal('12.345')),
--    (pk_obj, 671, DecimalPKData, decimal.Decimal('-12.345')),
--    (pk_obj, 672, DecimalPKData, decimal.Decimal('0.0')),
-+    # fdbsql: DecimalPKData disabled a json serializer treates Decimal as number
-+    #(pk_obj, 670, DecimalPKData, decimal.Decimal('12.345')),
-+    #(pk_obj, 671, DecimalPKData, decimal.Decimal('-12.345')),
-+    #(pk_obj, 672, DecimalPKData, decimal.Decimal('0.0')),
-     (pk_obj, 673, FloatPKData, 12.345),
-     (pk_obj, 674, FloatPKData, -12.345),
-     (pk_obj, 675, FloatPKData, 0.0),

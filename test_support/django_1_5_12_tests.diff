@@ -17,8 +17,21 @@ index 1e300fb..1231c47 100644
      def test_get_or_create(self):
          p = Person.objects.create(
              first_name='John', last_name='Lennon', birthday=date(1940, 10, 9)
+diff --git a/tests/regressiontests/admin_scripts/tests.py b/tests/regressiontests/admin_scripts/tests.py
+index 91bcbee..5681835 100644
+--- a/tests/regressiontests/admin_scripts/tests.py
++++ b/tests/regressiontests/admin_scripts/tests.py
+@@ -89,7 +89,7 @@ class AdminScriptTestCase(unittest.TestCase):
+         Returns the paths for any external backend packages.
+         """
+         paths = []
+-        first_package_re = re.compile(r'(^[^\.]+)\.')
++        first_package_re = re.compile(r'(^[^\.]+)\.?')
+         for backend in settings.DATABASES.values():
+             result = first_package_re.findall(backend['ENGINE'])
+             if result and result != 'django':
 diff --git a/tests/regressiontests/aggregation_regress/tests.py b/tests/regressiontests/aggregation_regress/tests.py
-index 65d345a..9d06e8e 100644
+index 65d345a..a72df4a 100644
 --- a/tests/regressiontests/aggregation_regress/tests.py
 +++ b/tests/regressiontests/aggregation_regress/tests.py
 @@ -9,6 +9,8 @@ from django.core.exceptions import FieldError
@@ -51,7 +64,7 @@ index b92d3b9..3efdfc7 100644
          """
          Constraint checks should raise an IntegrityError when bad data is in the DB.
 diff --git a/tests/regressiontests/delete_regress/tests.py b/tests/regressiontests/delete_regress/tests.py
-index 1bc4e78..c34f87b 100644
+index 1bc4e78..906691f 100644
 --- a/tests/regressiontests/delete_regress/tests.py
 +++ b/tests/regressiontests/delete_regress/tests.py
 @@ -3,8 +3,9 @@ from __future__ import absolute_import
@@ -61,7 +74,7 @@ index 1bc4e78..c34f87b 100644
 -from django.db import backend, transaction, DEFAULT_DB_ALIAS, models
 +from django.db import backend, transaction, DEFAULT_DB_ALIAS, models, connection
  from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
-+from django.utils.unittest import skipIf
++from django.utils import unittest
  
  from .models import (Book, Award, AwardNote, Person, Child, Toy, PlayedWith,
      PlayedWithNote, Email, Researcher, Food, Eaten, Policy, Version, Location,
@@ -69,10 +82,42 @@ index 1bc4e78..c34f87b 100644
          transaction.leave_transaction_management()
          self.conn2.close()
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Test assumes READ COMMITTED isolation')
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Test assumes READ COMMITTED isolation')
      @skipUnlessDBFeature('test_db_allows_multiple_connections')
      def test_concurrent_delete(self):
          "Deletes on concurrent transactions don't collide and lock the database. Regression for #9479"
+@@ -289,6 +291,7 @@ class Ticket19102Tests(TestCase):
+         self.l1 = Login.objects.create(description='l1', orgunit=self.o1)
+         self.l2 = Login.objects.create(description='l2', orgunit=self.o2)
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Known bug!')
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_annotate(self):
+         with self.assertNumQueries(1):
+@@ -302,6 +305,7 @@ class Ticket19102Tests(TestCase):
+         self.assertFalse(Login.objects.filter(pk=self.l1.pk).exists())
+         self.assertTrue(Login.objects.filter(pk=self.l2.pk).exists())
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Known bug!')
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_extra(self):
+         with self.assertNumQueries(1):
+@@ -329,6 +333,7 @@ class Ticket19102Tests(TestCase):
+         self.assertFalse(Login.objects.filter(pk=self.l1.pk).exists())
+         self.assertTrue(Login.objects.filter(pk=self.l2.pk).exists())
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Known bug!')
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_select_related(self):
+         with self.assertNumQueries(1):
+@@ -342,6 +347,7 @@ class Ticket19102Tests(TestCase):
+         self.assertFalse(Login.objects.filter(pk=self.l1.pk).exists())
+         self.assertTrue(Login.objects.filter(pk=self.l2.pk).exists())
+     
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Known bug!')
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_defer(self):
+         with self.assertNumQueries(1):
 diff --git a/tests/regressiontests/extra_regress/tests.py b/tests/regressiontests/extra_regress/tests.py
 index f591900..123fce1 100644
 --- a/tests/regressiontests/extra_regress/tests.py
@@ -103,7 +148,7 @@ index f591900..123fce1 100644
          """
          Ensure that extra WHERE clauses get correctly ANDed, even when they
 diff --git a/tests/regressiontests/fixtures_regress/tests.py b/tests/regressiontests/fixtures_regress/tests.py
-index 61dc446..3a8e078 100644
+index 61dc446..10a394e 100644
 --- a/tests/regressiontests/fixtures_regress/tests.py
 +++ b/tests/regressiontests/fixtures_regress/tests.py
 @@ -18,6 +18,8 @@ from django.utils.encoding import force_text
@@ -147,36 +192,77 @@ index 1d20f44..0976feb 100644
  class BigS(models.Model):
      s = models.SlugField(max_length=255)
 diff --git a/tests/regressiontests/multiple_database/tests.py b/tests/regressiontests/multiple_database/tests.py
-index f2ecfbe..27c569d 100644
+index f2ecfbe..9f6ac8f 100644
 --- a/tests/regressiontests/multiple_database/tests.py
 +++ b/tests/regressiontests/multiple_database/tests.py
-@@ -7,11 +7,12 @@ from operator import attrgetter
- from django.contrib.auth.models import User
- from django.contrib.contenttypes.models import ContentType
- from django.core import management
--from django.db import connections, router, DEFAULT_DB_ALIAS
-+from django.db import connections, router, DEFAULT_DB_ALIAS, connection
- from django.db.models import signals
- from django.test import TestCase
- from django.test.utils import override_settings
- from django.utils.six import StringIO
-+from django.utils.unittest import skipIf
+@@ -1348,14 +1348,14 @@ class RouterTestCase(TestCase):
+         # If you create an object through a M2M relation, it will be
+         # written to the write database, even if the original object
+         # was on the read database
+-        alice = dive.authors.create(name='Alice')
++        alice = dive.authors.create(name='Alice', pk=3)
+         self.assertEqual(alice._state.db, 'default')
  
- from .models import Book, Person, Pet, Review, UserProfile
+         # Same goes for get_or_create, regardless of whether getting or creating
+         alice, created = dive.authors.get_or_create(name='Alice')
+         self.assertEqual(alice._state.db, 'default')
  
-@@ -1639,6 +1640,7 @@ class FixtureTestCase(TestCase):
-         # Restore the 'other' database as an independent database
-         router.routers = self.old_routers
+-        bob, created = dive.authors.get_or_create(name='Bob')
++        bob, created = dive.authors.get_or_create(name='Bob', pk=4)
+         self.assertEqual(bob._state.db, 'default')
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
-     def test_fixture_loading(self):
-         "Multi-db fixtures are loaded correctly"
-         # Check that "Pro Django" exists on the default database, but not on other database
-@@ -1676,6 +1678,7 @@ class FixtureTestCase(TestCase):
-         except Book.DoesNotExist:
-             self.fail('"The Definitive Guide to Django" should exist on both databases')
+     def test_o2o_cross_database_protection(self):
+diff --git a/tests/regressiontests/queries/tests.py b/tests/regressiontests/queries/tests.py
+index c7e746e..1fd906d 100644
+--- a/tests/regressiontests/queries/tests.py
++++ b/tests/regressiontests/queries/tests.py
+@@ -494,6 +494,7 @@ class Queries1Tests(BaseQuerysetTest):
+             [{'note': 1}, {'note': 2}]
+         )
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
-     def test_pseudo_empty_fixtures(self):
-         "A fixture can contain entries, but lead to nothing in the database; this shouldn't raise an error (ref #14068)"
-         new_io = StringIO()
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Known bug!')
+     def test_ticket2902(self):
+         # Parameters can be given to extra_select, *if* you use a SortedDict.
+ 
+@@ -589,6 +590,7 @@ class Queries1Tests(BaseQuerysetTest):
+             [{'note__note': 'n2'}, {'note__note': 'n3'}, {'note__note': 'n3'}, {'note__note': 'n3'}]
+         )
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Known bug!')
+     def test_ticket7096(self):
+         # Make sure exclude() with multiple conditions continues to work.
+         self.assertQuerysetEqual(
+@@ -848,6 +850,7 @@ class Queries1Tests(BaseQuerysetTest):
+         )
+         Tag._meta.ordering = original_ordering
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Known bug!')
+     def test_exclude(self):
+         self.assertQuerysetEqual(
+             Item.objects.exclude(tags__name='t4'),
+@@ -859,11 +862,13 @@ class Queries1Tests(BaseQuerysetTest):
+             Item.objects.exclude(Q(tags__name='t4')|~Q(tags__name='t3')),
+             [repr(i) for i in Item.objects.filter(~(Q(tags__name='t4')|~Q(tags__name='t3')))])
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Known bug!')
+     def test_nested_exclude(self):
+         self.assertQuerysetEqual(
+             Item.objects.exclude(~Q(tags__name='t4')),
+             [repr(i) for i in Item.objects.filter(~~Q(tags__name='t4'))])
+ 
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Known bug!')
+     def test_double_exclude(self):
+         self.assertQuerysetEqual(
+             Item.objects.filter(Q(tags__name='t4')),
+diff --git a/tests/regressiontests/test_runner/tests.py b/tests/regressiontests/test_runner/tests.py
+index 3418e2a..95db088 100644
+--- a/tests/regressiontests/test_runner/tests.py
++++ b/tests/regressiontests/test_runner/tests.py
+@@ -368,6 +368,7 @@ class DeprecationDisplayTest(AdminScriptTestCase):
+         self.assertFalse("DeprecationWarning: warning from test" in err)
+ 
+ 
++@unittest.skipIf(db.connection.vendor == 'fdbsql', 'Requires transactional sequence reset')
+ class AutoIncrementResetTest(TransactionTestCase):
+     """
+     Here we test creating the same model two times in different test methods,

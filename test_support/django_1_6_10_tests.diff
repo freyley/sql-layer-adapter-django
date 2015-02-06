@@ -1,16 +1,30 @@
+diff --git a/tests/admin_scripts/tests.py b/tests/admin_scripts/tests.py
+index 56cd8e1..4dbda50 100644
+--- a/tests/admin_scripts/tests.py
++++ b/tests/admin_scripts/tests.py
+@@ -96,7 +96,7 @@ class AdminScriptTestCase(unittest.TestCase):
+         Returns the paths for any external backend packages.
+         """
+         paths = []
+-        first_package_re = re.compile(r'(^[^\.]+)\.')
++        first_package_re = re.compile(r'(^[^\.]+)\.?')
+         for backend in settings.DATABASES.values():
+             result = first_package_re.findall(backend['ENGINE'])
+             if result and result != ['django']:
 diff --git a/tests/admin_views/tests.py b/tests/admin_views/tests.py
-index f26b0ab..3bdc474 100644
+index 565ff7d..1da2326 100644
 --- a/tests/admin_views/tests.py
 +++ b/tests/admin_views/tests.py
-@@ -39,6 +39,7 @@ from django.utils.http import urlencode, urlquote
- from django.utils.six.moves.urllib.parse import urljoin
- from django.utils._os import upath
- from django.utils import six
-+from django.test import skipUnlessDBFeature
- 
- # local test models
- from .models import (Article, BarAccount, CustomArticle, EmptyModel, FooAccount,
-@@ -127,6 +128,7 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
+@@ -28,7 +28,7 @@ from django.contrib.contenttypes.models import ContentType
+ from django.db import connection
+ from django.forms.util import ErrorList
+ from django.template.response import TemplateResponse
+-from django.test import TestCase
++from django.test import TestCase, skipUnlessDBFeature
+ from django.test.utils import patch_logger
+ from django.test.utils import override_settings
+ from django.utils import formats
+@@ -129,6 +129,7 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
          self.assertIsInstance(response, TemplateResponse)
          self.assertEqual(response.status_code, 200)
  
@@ -18,7 +32,7 @@ index f26b0ab..3bdc474 100644
      def testBasicEditGetStringPK(self):
          """
          Ensure GET on the change_view works (returns an HTTP 404 error, see
-@@ -136,6 +138,7 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
+@@ -138,6 +139,7 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
          response = self.client.get('/test_admin/%s/admin_views/section/abc/' % self.urlbit)
          self.assertEqual(response.status_code, 404)
  
@@ -26,7 +40,7 @@ index f26b0ab..3bdc474 100644
      def testBasicInheritanceGetStringPK(self):
          """
          Ensure GET on the change_view works on inherited models (returns an
-@@ -1024,6 +1027,7 @@ class AdminViewPermissionsTest(TestCase):
+@@ -1065,6 +1067,7 @@ class AdminViewPermissionsTest(TestCase):
          self.assertFalse(login.context)
          self.client.get('/test_admin/admin/logout/')
  
@@ -34,7 +48,7 @@ index f26b0ab..3bdc474 100644
      def testAddView(self):
          """Test add view restricts access and actually adds items."""
  
-@@ -1079,6 +1083,7 @@ class AdminViewPermissionsTest(TestCase):
+@@ -1120,6 +1123,7 @@ class AdminViewPermissionsTest(TestCase):
          # make sure the view removes test cookie
          self.assertEqual(self.client.session.test_cookie_worked(), False)
  
@@ -42,7 +56,7 @@ index f26b0ab..3bdc474 100644
      def testChangeView(self):
          """Change view should restrict access and allow users to edit items."""
  
-@@ -1257,6 +1262,7 @@ class AdminViewPermissionsTest(TestCase):
+@@ -1298,6 +1302,7 @@ class AdminViewPermissionsTest(TestCase):
  
          self.client.get('/test_admin/admin/logout/')
  
@@ -50,7 +64,31 @@ index f26b0ab..3bdc474 100644
      def testDeleteView(self):
          """Delete view should restrict access and actually delete items."""
  
-@@ -3756,6 +3762,8 @@ class UserAdminTest(TestCase):
+@@ -2731,6 +2736,7 @@ class AdminCustomQuerysetTest(TestCase):
+             self.assertEqual(resp.context['selection_note'], '0 of 1 selected')
+             self.assertEqual(resp.context['selection_note_all'], '1 selected')
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_change_view(self):
+         for i in self.pks:
+             response = self.client.get('/test_admin/admin/admin_views/emptymodel/%s/' % i)
+@@ -3715,6 +3721,7 @@ class UserAdminTest(TestCase):
+     def tearDown(self):
+         self.client.logout()
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_save_button(self):
+         user_count = User.objects.count()
+         response = self.client.post('/test_admin/admin/auth/user/add/', {
+@@ -3727,6 +3734,7 @@ class UserAdminTest(TestCase):
+         self.assertEqual(User.objects.count(), user_count + 1)
+         self.assertTrue(new_user.has_usable_password())
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_save_continue_editing_button(self):
+         user_count = User.objects.count()
+         response = self.client.post('/test_admin/admin/auth/user/add/', {
+@@ -3796,6 +3804,8 @@ class UserAdminTest(TestCase):
          # Oracle doesn't implement "RELEASE SAVPOINT", see #20387.
          if connection.vendor == 'oracle':
              expected_queries -= 1
@@ -59,7 +97,7 @@ index f26b0ab..3bdc474 100644
  
          with self.assertNumQueries(expected_queries):
              response = self.client.get('/test_admin/admin/auth/user/%s/' % u.pk)
-@@ -3799,6 +3807,8 @@ class GroupAdminTest(TestCase):
+@@ -3839,6 +3849,8 @@ class GroupAdminTest(TestCase):
          # Oracle doesn't implement "RELEASE SAVPOINT", see #20387.
          if connection.vendor == 'oracle':
              expected_queries -= 1
@@ -68,17 +106,28 @@ index f26b0ab..3bdc474 100644
  
          with self.assertNumQueries(expected_queries):
              response = self.client.get('/test_admin/admin/auth/group/%s/' % g.pk)
+@@ -4451,6 +4463,7 @@ class AdminKeepChangeListFiltersTests(TestCase):
+         )
+         post_data.pop('_addanother')
+ 
++    @skipUnlessDBFeature("uses_savepoints")
+     def test_add_view(self):
+         # Get the `add_view`.
+         response = self.client.get(self.get_add_url())
 diff --git a/tests/aggregation_regress/tests.py b/tests/aggregation_regress/tests.py
-index f0d1e59..c982693 100644
+index f0d1e59..8d88a49 100644
 --- a/tests/aggregation_regress/tests.py
 +++ b/tests/aggregation_regress/tests.py
-@@ -10,7 +10,8 @@ from django.contrib.contenttypes.models import ContentType
+@@ -7,10 +7,11 @@ from operator import attrgetter
+ 
+ from django.core.exceptions import FieldError
+ from django.contrib.contenttypes.models import ContentType
++from django.db import connection
  from django.db.models import Count, Max, Avg, Sum, StdDev, Variance, F, Q
  from django.test import TestCase, Approximate, skipUnlessDBFeature
  from django.utils import six
 -from django.utils.unittest import expectedFailure
 +from django.utils.unittest import expectedFailure, skipIf
-+from django.db import connection
  
  from .models import (
      Author, Book, Publisher, Clues, Entries, HardbackBook, ItemTag,
@@ -91,27 +140,19 @@ index f0d1e59..c982693 100644
          # Tests on fields with non-default table and column names.
          qs = Clues.objects.values('EntryID__Entry').annotate(Appearances=Count('EntryID'), Distinct_Clues=Count('Clue', distinct=True))
 diff --git a/tests/backends/tests.py b/tests/backends/tests.py
-index 52897e4..6ad50b9 100644
+index e62f564..f980869 100644
 --- a/tests/backends/tests.py
 +++ b/tests/backends/tests.py
-@@ -24,6 +24,7 @@ from django.test import (TestCase, skipUnlessDBFeature, skipIfDBFeature,
- from django.test.utils import override_settings, str_prefix
- from django.utils import six, unittest
- from django.utils.six.moves import xrange
-+from django.utils.unittest import skipIf
- 
- from . import models
- 
-@@ -709,6 +710,7 @@ class FkConstraintsTests(TransactionTestCase):
+@@ -732,6 +732,7 @@ class FkConstraintsTests(TransactionTestCase):
                  self.fail("IntegrityError should not have occurred.")
              transaction.set_rollback(True)
  
-+    @skipIf(connection.vendor == 'fdbsql', 'check_constraints not implemented')
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'check_constraints() not implemented')
      def test_check_constraints(self):
          """
          Constraint checks should raise an IntegrityError when bad data is in the DB.
 diff --git a/tests/delete_regress/tests.py b/tests/delete_regress/tests.py
-index a4908b2..5d20c91 100644
+index a4908b2..020e769 100644
 --- a/tests/delete_regress/tests.py
 +++ b/tests/delete_regress/tests.py
 @@ -3,9 +3,10 @@ from __future__ import absolute_import
@@ -122,7 +163,7 @@ index a4908b2..5d20c91 100644
 +from django.db import transaction, DEFAULT_DB_ALIAS, models, connection
  from django.db.utils import ConnectionHandler
  from django.test import TestCase, TransactionTestCase, skipUnlessDBFeature
-+from django.utils.unittest import skipIf
++from django.utils import unittest
  
  from .models import (Book, Award, AwardNote, Person, Child, Toy, PlayedWith,
      PlayedWithNote, Email, Researcher, Food, Eaten, Policy, Version, Location,
@@ -130,10 +171,42 @@ index a4908b2..5d20c91 100644
          self.conn2.abort()
          self.conn2.close()
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Test assumes READ COMMITTED isolation')
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Test assumes READ COMMITTED isolation')
      @skipUnlessDBFeature('test_db_allows_multiple_connections')
      def test_concurrent_delete(self):
          "Deletes on concurrent transactions don't collide and lock the database. Regression for #9479"
+@@ -287,6 +289,7 @@ class Ticket19102Tests(TestCase):
+         self.l1 = Login.objects.create(description='l1', orgunit=self.o1)
+         self.l2 = Login.objects.create(description='l2', orgunit=self.o2)
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_annotate(self):
+         with self.assertNumQueries(1):
+@@ -300,6 +303,7 @@ class Ticket19102Tests(TestCase):
+         self.assertFalse(Login.objects.filter(pk=self.l1.pk).exists())
+         self.assertTrue(Login.objects.filter(pk=self.l2.pk).exists())
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_extra(self):
+         with self.assertNumQueries(1):
+@@ -327,6 +331,7 @@ class Ticket19102Tests(TestCase):
+         self.assertFalse(Login.objects.filter(pk=self.l1.pk).exists())
+         self.assertTrue(Login.objects.filter(pk=self.l2.pk).exists())
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_select_related(self):
+         with self.assertNumQueries(1):
+@@ -340,6 +345,7 @@ class Ticket19102Tests(TestCase):
+         self.assertFalse(Login.objects.filter(pk=self.l1.pk).exists())
+         self.assertTrue(Login.objects.filter(pk=self.l2.pk).exists())
+ 
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     @skipUnlessDBFeature("update_can_self_select")
+     def test_ticket_19102_defer(self):
+         with self.assertNumQueries(1):
 diff --git a/tests/expressions/tests.py b/tests/expressions/tests.py
 index 3b875b6..783426f 100644
 --- a/tests/expressions/tests.py
@@ -167,23 +240,24 @@ index 3b875b6..783426f 100644
          # F expressions can be used to update attributes on single objects
          test_gmbh = Company.objects.get(name="Test GmbH")
 diff --git a/tests/extra_regress/tests.py b/tests/extra_regress/tests.py
-index 194b250..d393e5f 100644
+index 194b250..3c925c1 100644
 --- a/tests/extra_regress/tests.py
 +++ b/tests/extra_regress/tests.py
-@@ -5,6 +5,8 @@ import datetime
+@@ -3,7 +3,9 @@ from __future__ import absolute_import, unicode_literals
+ import datetime
+ 
  from django.contrib.auth.models import User
- from django.test import TestCase
- from django.utils.datastructures import SortedDict
 +from django.db import connection
-+from django.utils.unittest import skipIf
+ from django.test import TestCase
++from django.utils import unittest
+ from django.utils.datastructures import SortedDict
  
  from .models import TestObject, Order, RevisionableModel
- 
 @@ -171,6 +173,7 @@ class ExtraRegressTests(TestCase):
              transform=lambda d: d,
          )
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
      def test_values_with_extra(self):
          """
          Regression test for #10256... If there is a values() clause, Extra
@@ -191,28 +265,36 @@ index 194b250..d393e5f 100644
              ['<TestObject: TestObject: first,second,third>']
          )
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'Manual WHERE reserved word')
      def test_regression_17877(self):
          """
          Ensure that extra WHERE clauses get correctly ANDed, even when they
 diff --git a/tests/fixtures_regress/tests.py b/tests/fixtures_regress/tests.py
-index 571fd85..efff6bc 100644
+index 571fd85..a8eac75 100644
 --- a/tests/fixtures_regress/tests.py
 +++ b/tests/fixtures_regress/tests.py
-@@ -20,6 +20,8 @@ from django.utils.encoding import force_text
+@@ -11,14 +11,14 @@ from django.core.serializers.base import DeserializationError
+ from django.core import management
+ from django.core.management.base import CommandError
+ from django.core.management.commands.dumpdata import sort_dependencies
+-from django.db import transaction, IntegrityError
++from django.db import transaction, IntegrityError, connection
+ from django.db.models import signals
+ from django.test import (TestCase, TransactionTestCase, skipIfDBFeature,
+     skipUnlessDBFeature)
+ from django.test.utils import override_settings
+ from django.utils.encoding import force_text
  from django.utils._os import upath
- from django.utils import six
+-from django.utils import six
++from django.utils import six, unittest
  from django.utils.six import PY3, StringIO
-+from django.utils.unittest import skipIf
-+from django.db import connection
  
  from .models import (Animal, Stuff, Absolute, Parent, Child, Article, Widget,
-     Store, Person, Book, NKChild, RefToNKChild, Circle1, Circle2, Circle3,
-@@ -405,6 +407,7 @@ class TestFixtures(TestCase):
+@@ -405,6 +405,7 @@ class TestFixtures(TestCase):
          self.assertEqual(Book.objects.all()[0].id, 1)
          self.assertEqual(Person.objects.all()[0].id, 4)
  
-+    @skipIf(connection.vendor == 'fdbsql', 'check_constraints() not implemented')
++    @unittest.skipIf(connection.vendor == 'fdbsql', 'check_constraints() not implemented')
      def test_loaddata_raises_error_when_fixture_has_invalid_foreign_key(self):
          """
          Regression for #3615 - Ensure data with nonexistent child key references raises error
@@ -282,7 +364,7 @@ index 97e5d35..0065aa0 100644
          else:
              assertFieldType('small_int_field', "models.IntegerField()")
 diff --git a/tests/model_fields/models.py b/tests/model_fields/models.py
-index 8c304cc..93012cb 100644
+index 6a7c122..9c43180 100644
 --- a/tests/model_fields/models.py
 +++ b/tests/model_fields/models.py
 @@ -9,7 +9,7 @@ except ImproperlyConfigured:
@@ -304,110 +386,48 @@ index 8c304cc..93012cb 100644
  
  class BigS(models.Model):
      s = models.SlugField(max_length=255)
-diff --git a/tests/model_inheritance_same_model_name/models.py b/tests/model_inheritance_same_model_name/models.py
-deleted file mode 100644
-index b4a6b93..0000000
---- a/tests/model_inheritance_same_model_name/models.py
-+++ /dev/null
-@@ -1,24 +0,0 @@
--"""
--XX. Model inheritance
--
--Model inheritance across apps can result in models with the same name resulting
--in the need for an %(app_label)s format string. This app specifically tests
--this feature by redefining the Copy model from model_inheritance/models.py
--"""
--
--from __future__ import absolute_import
--
--from django.db import models
--
--from model_inheritance.models import NamedURL
--from django.utils.encoding import python_2_unicode_compatible
--
--#
--# Abstract base classes with related models
--#
--@python_2_unicode_compatible
--class Copy(NamedURL):
--    content = models.TextField()
--
--    def __str__(self):
--        return self.content
-diff --git a/tests/model_inheritance_same_model_name/tests.py b/tests/model_inheritance_same_model_name/tests.py
-deleted file mode 100644
-index 8f22578..0000000
---- a/tests/model_inheritance_same_model_name/tests.py
-+++ /dev/null
-@@ -1,36 +0,0 @@
--from __future__ import absolute_import
--
--from django.test import TestCase
--
--from model_inheritance.models import Title
--
--
--class InheritanceSameModelNameTests(TestCase):
--
--    def setUp(self):
--        # The Title model has distinct accessors for both
--        # model_inheritance.Copy and model_inheritance_same_model_name.Copy
--        # models.
--        self.title = Title.objects.create(title='Lorem Ipsum')
--
--    def test_inheritance_related_name(self):
--        from model_inheritance.models import Copy
--        self.assertEqual(
--            self.title.attached_model_inheritance_copy_set.create(
--                content='Save $ on V1agr@',
--                url='http://v1agra.com/',
--                title='V1agra is spam',
--            ), Copy.objects.get(content='Save $ on V1agr@'))
--
--    def test_inheritance_with_same_model_name(self):
--        from model_inheritance_same_model_name.models import Copy
--        self.assertEqual(
--            self.title.attached_model_inheritance_same_model_name_copy_set.create(
--                content='The Web framework for perfectionists with deadlines.',
--                url='http://www.djangoproject.com/',
--                title='Django Rocks'
--            ), Copy.objects.get(content='The Web framework for perfectionists with deadlines.'))
--
--    def test_related_name_attribute_exists(self):
--        # The Post model doesn't have an attribute called 'attached_%(app_label)s_%(class)s_set'.
--        self.assertEqual(hasattr(self.title, 'attached_%(app_label)s_%(class)s_set'), False)
 diff --git a/tests/multiple_database/tests.py b/tests/multiple_database/tests.py
-index 889841a..b75a0fa 100644
+index 889841a..d97b2a8 100644
 --- a/tests/multiple_database/tests.py
 +++ b/tests/multiple_database/tests.py
-@@ -9,12 +9,13 @@ from django.conf import settings
- from django.contrib.auth.models import User
- from django.contrib.contenttypes.models import ContentType
- from django.core import management
--from django.db import connections, router, DEFAULT_DB_ALIAS
-+from django.db import connections, router, DEFAULT_DB_ALIAS, connection
- from django.db.models import signals
- from django.db.utils import ConnectionRouter
- from django.test import TestCase
- from django.test.utils import override_settings
- from django.utils.six import StringIO
-+from django.utils.unittest import skipIf
+@@ -1376,14 +1376,14 @@ class RouterTestCase(TestCase):
+         # If you create an object through a M2M relation, it will be
+         # written to the write database, even if the original object
+         # was on the read database
+-        alice = dive.authors.create(name='Alice')
++        alice = dive.authors.create(name='Alice', pk=3)
+         self.assertEqual(alice._state.db, 'default')
  
- from .models import Book, Person, Pet, Review, UserProfile
+         # Same goes for get_or_create, regardless of whether getting or creating
+         alice, created = dive.authors.get_or_create(name='Alice')
+         self.assertEqual(alice._state.db, 'default')
  
-@@ -1669,6 +1670,7 @@ class FixtureTestCase(TestCase):
-         # Restore the 'other' database as an independent database
-         router.routers = self.old_routers
+-        bob, created = dive.authors.get_or_create(name='Bob')
++        bob, created = dive.authors.get_or_create(name='Bob', pk=4)
+         self.assertEqual(bob._state.db, 'default')
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
-     def test_fixture_loading(self):
-         "Multi-db fixtures are loaded correctly"
-         # Check that "Pro Django" exists on the default database, but not on other database
-@@ -1706,6 +1708,7 @@ class FixtureTestCase(TestCase):
-         except Book.DoesNotExist:
-             self.fail('"The Definitive Guide to Django" should exist on both databases')
+     def test_o2o_cross_database_protection(self):
+diff --git a/tests/queries/tests.py b/tests/queries/tests.py
+index 833f65f..ca4881f 100644
+--- a/tests/queries/tests.py
++++ b/tests/queries/tests.py
+@@ -500,6 +500,7 @@ class Queries1Tests(BaseQuerysetTest):
+             [{'note': 1}, {'note': 2}]
+         )
  
-+    @skipIf(connection.vendor == 'fdbsql', 'Transaction conflicts due to concurrent Sequence DDL')
-     def test_pseudo_empty_fixtures(self):
-         "A fixture can contain entries, but lead to nothing in the database; this shouldn't raise an error (ref #14068)"
-         new_io = StringIO()
++    @unittest.skipIf(connection.vendor == "fdbsql", "Known bug!")
+     def test_ticket2902(self):
+         # Parameters can be given to extra_select, *if* you use a SortedDict.
+ 
+diff --git a/tests/test_runner/tests.py b/tests/test_runner/tests.py
+index a34b049..00afdd6 100644
+--- a/tests/test_runner/tests.py
++++ b/tests/test_runner/tests.py
+@@ -374,6 +374,7 @@ class DeprecationDisplayTest(AdminScriptTestCase):
+         self.assertFalse("DeprecationWarning: warning from test" in err)
+ 
+ 
++@unittest.skipIf(db.connection.vendor == 'fdbsql', 'Requires transactional sequence reset')
+ class AutoIncrementResetTest(TransactionTestCase):
+     """
+     Here we test creating the same model two times in different test methods,
